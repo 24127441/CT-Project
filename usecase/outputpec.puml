@@ -1,0 +1,34 @@
+@startuml 
+title "PEC Use Case Diagram"
+
+actor "Người dùng" as U
+
+rectangle "Xem danh sách vật dụng đề xuất" {
+    usecase "Hiển thị danh sách vật dụng đề xuất\n(PEC 1 Page)" as UC1
+    usecase "Xem chi tiết vật dụng\n(PEC 2 Page)" as UC2
+    usecase "Thay thế vật dụng\n(PEC 3 Page)" as UC3
+    usecase "Xóa vật dụng khỏi danh sách" as UC4
+    'usecase "In / Tải danh sách vật dụng (PDF)" as UC5
+    usecase "Xác nhận danh sách vật dụng\n(chốt danh sách)" as UC6
+    'usecase "Thông báo lỗi khi tạo file PDF" as UC7
+    'usecase "Thông báo đã tải thành công" as UC8
+    'usecase "Điều chỉnh\ntổng chi cho vật dụng" as UC_Budget
+
+}
+
+usecase "Trip Dashboard" as Trip
+
+U --> UC1   : Mở PEC 1 Page
+UC1 --> UC2 : Nhấn vào\nvật dụng bất kỳ
+UC1 --> UC3 : Nhấn 'Chỉnh sửa' ở\n1 tab thể loại bất kì
+UC1 --> UC4 : Vuốt sang trái để xóa
+'UC1 --> UC5 : Nhấn 'In danh sách'
+'UC5 --> UC7 : Nếu lỗi khi tạo PDF
+UC1 --> UC6 : Nhấn 'Xác nhận' danh sách
+'UC1 --> UC_Budget : "Điều chỉnh ngân sách"
+'UC_Budget --> UC1 : "Tạo danh sách\nmới theo tổng chi"
+
+UC6 --> Trip : Xem kết quả\nsau khi tạo chuyến đi
+'UC5 --> UC8 : Nếu tải PDF thành công
+
+@enduml

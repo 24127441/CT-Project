@@ -1,0 +1,34 @@
+@startuml 
+title "Warning Use Case Diagram"
+
+actor "Người dùng" as U
+actor "Hệ thống" as S
+
+rectangle "Cảnh báo Thiên tai" {
+    usecase "Phát hiện cảnh báo thiên tai\nliên quan đến chuyến đi" as UC1
+    usecase "Kiểm tra trạng thái\nhoạt động của người dùng" as UC2
+    usecase "Hiển thị Pop-up cảnh báo" as UC3
+    usecase "Người dùng đọc cảnh báo và xác nhận 'Đã hiểu'" as UC4
+    usecase "Đóng Pop-up và quay\nlại màn hình trước" as UC5
+    usecase "Đánh dấu cảnh báo\nlà 'Đã hiển thị'" as UC6
+    usecase "Thêm cảnh báo vào\nhàng đợi (Queue)" as UC7
+    usecase "Hiển thị lại Pop-up\nkhi ứng dụng mở lại" as UC8
+}
+
+'===== Luồng chính =====
+S --> UC1 : Trigger cảnh báo mới
+UC1 --> UC2 : Nếu người dùng đang hoạt động
+UC2 --> UC3 : Cho phép hiển thị Pop-up
+UC3 --> UC4 : Hiển thị nội dung cảnh báo
+U --> UC4 : Đọc và nhấn 'Đã hiểu'
+UC4 --> UC5
+UC5 --> UC6 : Đóng Pop-up và lưu trạng thái
+
+'===== Luồng thay thế =====
+U --> UC5 : Nhấn ra ngoài\nPop-up để đóng
+
+'===== Luồng ngoại lệ =====
+UC3 --> UC7 : Nếu đang có Pop-up khác hiển thị
+UC3 --> UC8 : Nếu người dùng thoát ứng dụng
+
+@enduml

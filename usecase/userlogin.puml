@@ -1,0 +1,28 @@
+@startuml 
+title "Login Use Case Diagram"
+
+actor "Người dùng" as User
+
+rectangle "Hệ thống Đăng nhập" {
+    usecase "Đăng nhập bằng tài khoản" as UC_Login
+    usecase "Xác thực thông tin" as UC_Validate
+    usecase "Hiển thị lỗi" as UC_Error
+    usecase "Đăng ký tài khoản" as UC_Signup
+    usecase "Quên mật khẩu" as UC_Forgot
+    usecase "Đổi mật khẩu mới" as UC_Reset
+}
+
+usecase "Truy cập\nHome Page" as UC_Home
+
+' --- Luồng chính ---
+User --> UC_Login
+UC_Login --> UC_Validate : "Khi người dùng\nnhấn 'Đăng nhập'"
+UC_Validate --> UC_Home : "Nếu thông\ntin hợp lệ"
+UC_Validate --> UC_Error : "Nếu sai thông tin\nhoặc thiếu dữ liệu"
+
+' --- Các điều kiện rẽ nhánh khác ---
+UC_Login --> UC_Signup : "Nếu người dùng chọn\n'Không có tài khoản?'"
+UC_Login --> UC_Forgot : "Nếu người dùng\nchọn 'Quên mật khẩu'"
+UC_Forgot --> UC_Reset : "Khi người dùng\nxác thực qua email"
+
+@enduml

@@ -1,0 +1,46 @@
+@startuml 
+title "Fast Input Use Case Diagram"
+actor "Người dùng" as User
+
+rectangle "Sử dụng tính năng nhập nhanh" {
+
+  '--- Use Cases chính ---
+  usecase "Tạo kế hoạch chuyến đi\n(chọn nút 'Nhập nhanh')" as UC_FastPlan
+  usecase "Hiển thị danh sách\ncác mẫu Fast Input" as UC_ShowTemplates
+  usecase "Chọn và dùng mẫu đã lưu" as UC_UseTemplate
+  usecase "Hiển thị trang Trip Info 5" as UC_TripInfo5
+  usecase "Xác nhận kế hoạch" as UC_ConfirmPlan
+  usecase "Chuyển trang Trip Info\nqua lại để sửa" as UC_EditInfo
+  usecase "Lưu lại mẫu mới/cập nhật" as UC_SaveTemplate
+  usecase "Quản lý mẫu (Đổi tên / Xóa)" as UC_ManageTemplate
+  usecase "Hủy tạo kế hoạch" as UC_CancelPlan
+  usecase "Hiển thị thông báo lỗi" as UC_ShowError
+  usecase "Hiện danh sách rỗng" as UC_Empty
+}
+
+usecase "Chọn lộ trình đường đi" as UC_SubmitPlan
+usecase "Trang chủ” as Home
+
+
+'--- Luồng chính ---
+User --> UC_FastPlan : "Tại Home Page → chọn 'Lên kế hoạch'"
+UC_FastPlan --> UC_ShowTemplates : "Người dùng chọn 'Nhập nhanh'"
+UC_ShowTemplates --> UC_UseTemplate : "Nếu có mẫu đã lưu"
+UC_UseTemplate --> UC_TripInfo5 : "Hệ thống tải dữ liệu từ mẫu"
+UC_TripInfo5 --> UC_ConfirmPlan : "Người dùng nhấn 'Xác nhận'"
+UC_ConfirmPlan --> UC_SubmitPlan : "Tất cả thông tin hợp lệ"
+
+'--- Luồng thay thế ---
+UC_ShowTemplates --> UC_CancelPlan : "Người dùng nhấn\nnút mũi tên quay về"
+UC_TripInfo5 --> UC_EditInfo : "Nếu người dùng muốn\nchỉnh sửa thông tin"
+UC_TripInfo5 --> UC_SaveTemplate : "Nếu người dùng nhấn 'Lưu mẫu này'"
+UC_ShowTemplates --> UC_ManageTemplate : "Nếu người dùng chọn\n'Đổi tên' hoặc 'Xóa'"
+UC_CancelPlan --> Home : "Hệ thống chuyển\nvề Home Page"
+UC_ShowTemplates --> UC_Empty : "Người dùng\nchưa lưu mẫu nào"
+
+
+'--- Luồng ngoại lệ ---
+UC_FastPlan --> UC_ShowError : "Không có mẫu\nnhập nhanh nào"
+UC_ConfirmPlan --> UC_ShowError : "Thiếu thông tin\nbắt buộc khi xác nhận"
+
+@enduml

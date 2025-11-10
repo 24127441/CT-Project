@@ -1,0 +1,30 @@
+@startuml 
+title "Sign-up Use Case Diagram"
+
+actor "Người dùng" as User
+
+rectangle "Hệ thống Đăng kí" {
+    usecase "Đăng ký tài khoản mới" as UC_Signup
+    usecase "Kiểm tra tính hợp lệ thông tin" as UC_Validate
+    usecase "Tạo tài khoản mới" as UC_Create
+    'usecase "Tự động đăng nhập" as UC_AutoLogin
+    usecase "Hiển thị cảnh báo lỗi" as UC_Error
+    usecase "Đi đến Login Page" as UC_LoginPage
+}
+
+usecase "Chuyển đến Home Page" as UC_Home
+
+' --- Luồng chính ---
+User --> UC_Signup : "Truy cập Sign-up Page"
+UC_Signup --> UC_Validate : "Khi nhấn 'Đăng ký'"
+UC_Validate --> UC_Create : "Nếu thông tin hợp lệ"
+'UC_Create --> UC_AutoLogin : "Nếu tài khoản được\ntạo thành công"
+'UC_AutoLogin --> UC_Home : "Nếu đăng nhập tự động thành công"
+UC_Create --> UC_Home : "Nếu tài khoản được\ntạo thành công"
+UC_Validate --> UC_Error : "Nếu thông tin\nthiếu hoặc trùng lặp"
+
+' --- Luồng thay thế ---
+UC_Signup --> UC_LoginPage : "Nếu người dùng\nchọn 'Đã có tài khoản?'"
+
+
+@enduml

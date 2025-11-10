@@ -1,0 +1,27 @@
+@startuml 
+title "Route Selection Use Case Diagram"
+
+actor "Người dùng" as U
+
+rectangle "Lựa chọn & Xác nhận Lộ trình" {
+    usecase "Hiển thị danh sách lộ trình khả thi\n(kèm % tương thích)" as UC1
+    usecase "Xem thông tin chi tiết lộ trình\n(Route Profile)" as UC2
+    usecase "Xem bản đồ tương tác\n(Interactive Map)" as UC3
+    usecase "Xác nhận lộ trình đã chọn" as UC4
+    usecase "Tải dữ liệu lộ trình (Offline mode)" as UC5
+    usecase "Quay lại và chọn cung đường khác" as UC6
+    usecase "Không có lộ trình khả thi" as UC7
+}
+
+usecase “Xem danh sách vật dụng” as PEC
+
+U --> UC1 :  Ở Preference Matching Page
+UC1 --> UC2 : Người dùng chọn\nmột lộ trình
+UC2 --> UC3 : Người dùng nhấn\nnút 'Bản đồ'
+UC3 --> UC5 : Tùy chọn tải bản đồ
+UC3 --> UC4 : Người dùng nhấn\n'Xác nhận đường đi'
+UC4 --> PEC : Chuyển hướng\nsang trang PEC
+UC2 --> UC6 : Nếu không hài\nlòng với lộ trình
+UC1 --> UC7 : Nếu không có lộ\ntrình nào khả thi
+
+@enduml

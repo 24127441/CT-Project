@@ -1,0 +1,33 @@
+@startuml 
+title "Trip Revision Use Case Diagram"
+
+
+actor "Người dùng" as U
+
+rectangle "Xem lại chuyến đi đã tạo" {
+    usecase "Xem danh sách chuyến đi" as UC1
+    usecase "Xem chi tiết chuyến đi\n(Trip Dashboard)" as UC2
+    usecase "Xem lộ trình (Route View)" as UC3
+    usecase "Xem & tick checklist vật dụng" as UC4
+    usecase "Chỉnh sửa ghi chú cá nhân" as UC5
+    usecase "Xóa vật dụng" as UC6
+    usecase "Quay lại trang Trip List" as UC7
+    usecase "Quay lại trang Home Page" as UC8
+    usecase "Hiển thị danh sách rỗng" as UC9
+}
+
+'---------------- Connections ----------------
+U --> UC1 : Chọn "Chuyến đi đã tạo"\n(tại Home Page)
+UC1 --> UC9 : Nếu không có\nchuyến đi nào
+UC1 --> UC2 : Nếu có ít nhất\n1 chuyến đi
+
+UC2 --> UC3 : Mặc định hiển\nthị tab 'Lộ trình'
+UC2 --> UC4 : Khi người dùng chọn\ntab 'List vật dụng'
+UC2 --> UC5 : Khi người dùng\nchọn tab 'Ghi chú'
+UC4 --> UC6 : Khi người dùng\nxóa vật dụng
+
+UC2 --> UC7 : Khi người dùng\nnhấn nút quay lại
+UC1 --> UC8 : Khi người dùng\nquay lại từ Trip List
+UC7 --> UC1 : Quay lại xem\nchuyến đi khác
+
+@enduml

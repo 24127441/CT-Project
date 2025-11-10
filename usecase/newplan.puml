@@ -1,0 +1,43 @@
+@startuml 
+title "New Plan Use Case Diagram"
+'left to right direction
+actor "Người dùng" as User
+
+rectangle "Nhập thông tin chuyến đi" {
+
+  '--- Use Cases chính ---
+  usecase "Tạo kế hoạch chuyến đi mới" as UC_MakePlan
+  usecase "Nhập thông tin Trip Info 1-4" as UC_FillTripInfo
+  usecase "Xem lại kế hoạch (Trip Info 5)" as UC_ReviewPlan
+  usecase "Chuyển hướng sang\n Waiting Page" as UC_SubmitPlan
+  usecase "Quay lại chỉnh sửa thông tin" as UC_EditInfo
+  usecase "Lưu mẫu nhập nhanh (Fast Input)" as UC_SaveTemplate
+  usecase "Hủy tạo kế hoạch" as UC_CancelPlan
+  usecase "Kiểm tra thông tin thiếu" as UC_CheckMissingInfo
+  usecase "Hiển thị thông báo lỗi" as UC_ShowError
+}
+
+usecase "Chọn lộ trình đường đi\ntừ thông tin nhập vào” as Route
+usecase "Trang chủ” as Home
+
+
+'--- Kết nối chính ---
+User --> UC_MakePlan : "Chọn 'Lên kế hoạch' tại Home Page"
+UC_MakePlan --> UC_FillTripInfo : "Người dùng chọn 'Tạo mới'"
+UC_FillTripInfo --> UC_ReviewPlan : "Sau khi hoàn\nthành 4 bước nhập"
+UC_ReviewPlan --> UC_SubmitPlan : "Người dùng nhấn 'Xác nhận'"
+UC_SubmitPlan --> Route : "Hệ thống hiển thị\nPreference Matching Page"
+
+'--- Luồng thay thế ---
+UC_FillTripInfo --> UC_EditInfo : "Người dùng 'Quay lại'\nTrip Info 1–5"
+UC_ReviewPlan --> UC_SaveTemplate : "Người dùng chọn\n'Lưu mẫu này'"
+UC_FillTripInfo --> UC_CancelPlan : "Người dùng chọn\n'Hủy' ở bất kỳ bước nào"
+UC_ReviewPlan --> UC_CancelPlan : "Người dùng chọn 'Hủy' ở Trip Info 5"
+
+UC_CancelPlan --> Home : "Hệ thống chuyển\nvề Home Page"
+
+'--- Luồng ngoại lệ ---
+UC_ReviewPlan --> UC_CheckMissingInfo : "Người dùng nhấn 'Xác nhận'\nnhưng thiếu thông tin"
+UC_CheckMissingInfo --> UC_ShowError : "Hiển thị: 'Hãy nhập đầy đủ\nthông tin bắt buộc'"
+
+@enduml
