@@ -1,41 +1,44 @@
-# Prerequisites
-*.d
+# ############################
+# ## GENERAL / OS / IDE
+# ############################
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
+# Operating System files
+.DS_Store
+Thumbs.db
 
-# Precompiled Headers
-*.gch
-*.pch
+# IDE configuration
+.vscode/
+.idea/
+*.iml
 
-# Linker files
-*.ilk
+# ############################
+# ## BACKEND (Python/Django)
+# ############################
 
-# Debugger Files
-*.pdb
+# Path is specified as /backend/
+/backend/venv/
+/backend/*.pyc
+/backend/__pycache__/
+/backend/*.egg-info/
+/backend/*.egg
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
+# Secrets
+/backend/.env
+/backend/*.env.*
+/backend/*.ini
 
-# Fortran module files
-*.mod
-*.smod
+# ############################
+# ## FRONTEND (Flutter/Dart)
+# ############################
 
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
-
-# debug information files
-*.dwo
+# Path is specified as /frontend/
+/frontend/build/
+/frontend/.dart_tool/
+/frontend/.flutter-plugins
+/frontend/.flutter-plugins-dependencies
+/frontend/.packages
+/frontend/ios/Pods/
+/frontend/ios/.symlinks/
+/frontend/ios/Flutter/App.framework
+/frontend/ios/Flutter/engine.framework
+/frontend/ios/Flutter/Flutter.podspec
