@@ -23,7 +23,6 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Roboto',
         useMaterial3: true,
       ),
-      // Start the app flow at the Login Screen
       home: const LoginScreen(),
     );
   }
