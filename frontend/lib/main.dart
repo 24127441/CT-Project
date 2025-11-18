@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
-import 'screens/login_screen.dart';
+import 'features/home/screen/home_view.dart';
 
 void main() {
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Login App',
+      title: 'Trek Guide',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.green,
         fontFamily: 'Roboto',
       ),
-      home: const LoginScreen(),
+      home: const HomeView(),
     );
   }
 }

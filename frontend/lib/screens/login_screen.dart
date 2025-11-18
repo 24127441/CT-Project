@@ -3,10 +3,11 @@ import '../widgets/custom_text_field.dart';
 import '../widgets/custom_button.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_styles.dart';
+import '../features/home/screen/home_view.dart';
 import 'otp_verification_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -25,7 +26,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _handleLogin() {
     // TODO: Connect to Django backend API here
-    // For now, navigate to OTP screen
+    // For now, navigate to Home screen
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const HomeView(),
+      ),
+    );
+  }
+  
+  void _navigateToOTP() {
     Navigator.push(
       context,
       MaterialPageRoute(
