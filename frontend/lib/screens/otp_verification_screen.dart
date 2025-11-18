@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../widgets/custom_button.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_styles.dart';
+import 'home_screen.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   const OtpVerificationScreen({Key? key}) : super(key: key);
@@ -32,6 +33,13 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     String otp = _otpControllers.map((c) => c.text).join();
     // TODO: Connect to Django backend to verify OTP
     print('OTP entered: $otp');
+    
+    // Navigate to Home Screen and remove previous routes so user can't back to OTP
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const HomePage()),
+      (route) => false,
+    );
   }
 
   @override

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'screens/trip_info_screen.dart'; // <-- Đã import
 import 'screens/login_screen.dart';
 
 void main() {
@@ -15,8 +14,14 @@ class MyApp extends StatelessWidget {
       title: 'Trek Guide',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primarySwatch: Colors.green,
+        // Using the forest green from the home screen as the primary seed color
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF425E3C),
+          primary: const Color(0xFF425E3C),
+        ),
+        scaffoldBackgroundColor: const Color(0xFFF8F6F2),
         fontFamily: 'Roboto',
+        useMaterial3: true,
       ),
       home: const LoginScreen(),
     );
