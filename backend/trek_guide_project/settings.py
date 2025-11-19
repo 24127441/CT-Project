@@ -25,7 +25,12 @@ SECRET_KEY = 'django-insecure-$5xm=s0*ut_cm9y5ijcb=x+7dfow$v+e68w0q-ev!l2l4wxsy*
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    '192.168.1.183',
+    'localhost',
+    '127.0.0.1',
+    '*',
+]
 
 
 # Application definition
@@ -46,9 +51,8 @@ INSTALLED_APPS = [
     # Local apps
     'users',
     'routes',
-    'plans',
+    'plan',
     'safety',
-
 
 ]
 
@@ -85,17 +89,23 @@ WSGI_APPLICATION = 'trek_guide_project.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'trekguide_db',
+#         'USER': 'postgres',
+#         'PASSWORD': 'fivepointcrew',
+#         'HOST': 'localhost',         # Địa chỉ máy chủ cơ sở dữ liệu
+#         'PORT': '5432',              # Cổng mặc định của PostgreSQL
+#     }
+# }
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'trekguide_db',
-        'USER': 'postgres',
-        'PASSWORD': 'fivepointcrew',
-        'HOST': 'localhost',         # Địa chỉ máy chủ cơ sở dữ liệu
-        'PORT': '5432',              # Cổng mặc định của PostgreSQL
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-
 # Custom user model
 AUTH_USER_MODEL = 'users.User'
 
