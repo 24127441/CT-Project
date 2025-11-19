@@ -6,6 +6,8 @@ from .serializers import UserRegisterSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 import random
 from django.utils import timezone
+from django.core.mail import send_mail
+from django.conf import settings
 
 User = get_user_model()
 
@@ -19,40 +21,48 @@ def generate_and_send_otp(user):
     user.otp_created_at = timezone.now()
     user.save()
 
-    # 3. Mock Email Sending (Print to terminal)
-    print(f"\n==========================================")
-    print(f" [EMAIL SYSTEM] Sending OTP to {user.email}")
-    print(f" SUBJECT: Your Trek Guide Verification Code")
-    print(f" BODY: Your code is: {otp}")
-    print(f"==========================================\n")
+    # 3. SEND REAL EMAIL
+    # If email settings are not configured, this might fail, so we wrap in try/except
+    subject = 'Your Trek Guide Verification Code'
+    message = f'Hello {user.full_name},\n\nYour verification code is: {otp}\n\nUse this to verify your account.'
+    
+    # If settings.EMAIL_HOST_USER is not set, default to a dummy email to prevent crash
+    email_from = getattr(settings, 'EMAIL_HOST_USER', 'noreply@trekguide.com')
+    recipient_list = [user.email]
+    
+    try:
+        send_mail(subject, message, email_from, recipient_list)
+        print(f"Email sent successfully to {user.email}")
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+        print(f"--- DEBUG OTP (Since email failed): {otp} ---")
 
 
+# --- THIS CLASS WAS MISSING AND CAUSED THE ERROR ---
 class RegisterView(generics.CreateAPIView):
     serializer_class = UserRegisterSerializer
     permission_classes = [permissions.AllowAny]
 
-    # --- THIS WAS MISSING IN YOUR FILE ---
     def create(self, request, *args, **kwargs):
-        # 1. Use the serializer to validate input (email, password match, etc.)
+        # 1. Validate input
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        # 2. Save the user to the database
+        # 2. Save User
         user = serializer.save()
         
-        # 3. Set user to 'inactive' so they can't login yet
+        # 3. Set inactive
         user.is_active = False 
         user.save()
 
-        # 4. Generate the OTP
+        # 4. Generate OTP
         generate_and_send_otp(user)
 
-        # 5. Return the custom response
+        # 5. Return response
         return Response({
             "message": "User registered. Please verify OTP.",
             "email": user.email
         }, status=status.HTTP_201_CREATED)
-    # -------------------------------------
 
 
 class LoginView(APIView):

@@ -154,3 +154,15 @@ REST_FRAMEWORK = {
         'djangorestframework_camel_case.parser.CamelCaseJSONParser',
     ),
 }
+
+
+# EMAIL CONFIGURATION
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+# Replace with your real Gmail address
+EMAIL_HOST_USER = 'voduyloc19122k6@gmail.com' 
+# Replace with the 16-char App Password you just generated (NOT your login password)
+EMAIL_HOST_PASSWORD = 'pcwz qmyf ocds ijtp'
+ 
