@@ -142,7 +142,7 @@ class _RouteProfilePageState extends State<RouteProfilePage> {
               ),
             ),
           ),
-          
+
           // Page Indicator
           Positioned(
             bottom: MediaQuery.of(context).size.height * 0.4 + 10,

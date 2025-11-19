@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'home_screen.dart'; // Tạm thời dẫn về đây
-
+import '../features/home/screen/home_view.dart';
 class WaitingScreen extends StatefulWidget {
   const WaitingScreen({super.key});
 
@@ -13,14 +12,11 @@ class _WaitingScreenState extends State<WaitingScreen> {
   @override
   void initState() {
     super.initState();
-    // --- LOGIC CHỜ GIẢ LẬP ---
-    // Đợi 3 giây (hoặc thời gian bạn muốn), sau đó chuyển trang
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
-        // Chuyển đến HomeScreen (Tạm thời thay cho Preference Matching)
 
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const HomePage()),
+          MaterialPageRoute(builder: (context) => const HomeView()),
               (Route<dynamic> route) => false,
         );
       }
