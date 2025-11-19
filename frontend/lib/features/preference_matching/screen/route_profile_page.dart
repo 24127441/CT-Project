@@ -1,60 +1,44 @@
-// File: lib/features/preference_matching/screens/route_profile_page.dart
-// ============================================
-// HƯỚNG DẪN ĐIỀU CHỈNH THÔNG SỐ ROUTE PROFILE
-// ============================================
-// 
-// 1. DRAGGABLE SHEET (Dòng 44-46):
-//    - initialChildSize: 0.68 = Chiều cao ban đầu (68% màn hình)
-//    - minChildSize: 0.68 = Chiều cao tối thiểu khi kéo xuống
-//    - maxChildSize: 0.9 = Chiều cao tối đa khi kéo lên (90% màn hình)
-//
-// 2. GRADIENT OVERLAY (Dòng 51-59):
-//    - Colors.transparent = Trong suốt ở trên
-//    - Colors.black.withOpacity(0.5) = Đen mờ 50% ở giữa
-//    - Colors.black.withOpacity(0.8) = Đen mờ 80% ở dưới
-//    - stops: [0.0, 0.1, 0.5] = Điểm chuyển màu
-//
-// 3. VIỀN KHUNG CHÍNH (Dòng 64):
-//    - margin: EdgeInsets.fromLTRB(16, 16, 16, 32) = Khoảng cách từ mép
-//      + 16px trái, phải, trên
-//      + 32px dưới (tránh gạch ngang điện thoại)
-//    - padding: EdgeInsets.all(20) = Khoảng cách bên trong khung
-//
-// 4. ĐƯỜNG VIỀN TRẮNG (Dòng 67-69):
-//    - color: Colors.white.withOpacity(0.3) = Màu trắng mờ 30%
-//    - width: 1.5 = Độ dày viền 1.5px
-//    - borderRadius: 24 = Bo góc 24px
-//
-// 5. TEXT STYLES:
-//    - Tên route (Dòng 79): fontSize 32, bold, trắng
-//    - Location (Dòng 85): fontSize 18, trắng 70%
-//
-// 6. STAT BOXES (hàm _buildStatBox - Dòng 173):
-//    - padding: 16px = Khoảng cách bên trong mỗi box
-//    - background: Colors.white.withOpacity(0.1) = Nền trắng mờ 10%
-//    - border: width 1.5px, opacity 0.3 = Viền trắng mờ
-//    - borderRadius: 12px = Bo góc
-//    - Số chính: fontSize 32, bold
-//    - Đơn vị: fontSize 16
-//    - Label: fontSize 13
-//
-// 7. NÚT "BẢN ĐỒ" (Dòng 138):
-//    - backgroundColor: #76C83A = Màu xanh lá
-//    - padding: vertical 18px = Chiều cao nút
-//    - fontSize: 18, fontWeight w600
-//    - borderRadius: 12px = Bo góc
-//    - letterSpacing: 0.5 = Khoảng cách chữ
-//
-// ============================================
-
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../models/route_model.dart';
-import 'interactive_map_page.dart';
+import 'package:frontend/features/preference_matching/models/route_model.dart';
+import 'package:frontend/features/preference_matching/screen/interactive_map_page.dart';
+import 'package:frontend/utils/app_colors.dart';
+import 'package:frontend/utils/app_styles.dart';
+import 'package:frontend/widgets/custom_button.dart';
 
-class RouteProfilePage extends StatelessWidget {
+class RouteProfilePage extends StatefulWidget {
   final RouteModel route;
 
   const RouteProfilePage({super.key, required this.route});
+
+  @override
+  State<RouteProfilePage> createState() => _RouteProfilePageState();
+}
+
+class _RouteProfilePageState extends State<RouteProfilePage> {
+  late final PageController _pageController;
+  int _currentPage = 0;
+
+  // Temporary list of images for the carousel
+  late final List<String> _imageUrls;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    // Use the route's main image and add some placeholders
+    _imageUrls = [
+      widget.route.imageUrl,
+      'https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=2070&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?q=80&w=2070&auto=format&fit=crop',
+    ];
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,152 +47,122 @@ class RouteProfilePage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: Container(
-          margin: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.3),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.of(context).pop(),
+        leading: GestureDetector(
+          onTap: () => Navigator.of(context).pop(),
+          child: Container(
+            margin: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.4),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
           ),
         ),
       ),
       body: Stack(
         children: [
-          // Background Image - Full Screen
-          Positioned.fill(
-            child: Image.network(
-              route.imageUrl,
-              fit: BoxFit.cover,
-            ),
-          ),
-          // Content Sheet with Gradient Overlay
-          DraggableScrollableSheet(
-            initialChildSize: 0.68,
-            minChildSize: 0.68,
-            maxChildSize: 0.9,
-            builder: (context, scrollController) {
-              return Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withOpacity(0.5),
-                      Colors.black.withOpacity(0.8),
-                    ],
-                    stops: const [0.0, 0.1, 0.5],
-                  ),
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                ),
-                child: Container(
-                  margin: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.3),
-                      width: 1.5,
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: SingleChildScrollView(
-                    controller: scrollController,
-                    physics: const ClampingScrollPhysics(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                      Text(
-                        route.name,
-                        style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      Text(
-                        route.location,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          color: Colors.white70,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      // Stats Grid - 2x2
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildStatBox(
-                              "${route.distanceKm}",
-                              "km",
-                              "Tổng chiều dài",
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildStatBox(
-                              "${route.elevationGainM}",
-                              "m",
-                              "Độ dốc tích lũy",
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildStatBox(
-                              "${route.durationDays}",
-                              "ngày ${route.durationNights}đêm",
-                              "Quãng thời gian\nước tính",
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildStatBox(
-                              route.terrain,
-                              "",
-                              "Địa hình",
-                            ),
-                          ),
-                        ],
-                      ),
-                       const SizedBox(height: 32),
-                       SizedBox(
-                         width: double.infinity,
-                         child: ElevatedButton(
-                           onPressed: () {
-                             Navigator.push(
-                               context,
-                               MaterialPageRoute(builder: (context) => InteractiveMapPage(route: route)),
-                             );
-                           },
-                           style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF76C83A),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 18),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              elevation: 0,
-                           ),
-                           child: const Text(
-                             "Bản đồ",
-                             style: TextStyle(
-                               fontSize: 18,
-                               fontWeight: FontWeight.w600,
-                               letterSpacing: 0.5,
-                             ),
-                           ),
-                         ),
-                       ),
-                      ],
-                    ),
-                  ),
-                ),
+          // Swipable Background Image Carousel
+          PageView.builder(
+            controller: _pageController,
+            itemCount: _imageUrls.length,
+            onPageChanged: (index) {
+              setState(() {
+                _currentPage = index;
+              });
+            },
+            itemBuilder: (context, index) {
+              return Image.network(
+                _imageUrls[index],
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
               );
             },
+          ),
+
+          // Bottom Info Sheet
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  height: MediaQuery.of(context).size.height * 0.4,
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(widget.route.name, style: AppStyles.profileTitle),
+                          const SizedBox(height: 8),
+                          Text(widget.route.location, style: AppStyles.profileSubtitle),
+                          const SizedBox(height: 24),
+                          // Stats Grid
+                          Row(
+                            children: [
+                              Expanded(child: _buildStatBox("${widget.route.distanceKm}", "km", "Tổng chiều dài")),
+                              const SizedBox(width: 16),
+                              Expanded(child: _buildStatBox("${widget.route.elevationGainM}", "m", "Độ dốc tích lũy")),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(child: _buildDurationStatBox(widget.route.durationDays.toString(), "ngày", widget.route.durationNights.toString(), "đêm", "Quãng thời gian\nước tính")),
+                              const SizedBox(width: 16),
+                              Expanded(child: _buildStatBox(widget.route.terrain, "", "Địa hình")),
+                            ],
+                          ),
+                        ],
+                      ),
+
+                      // Button
+                      CustomButton(
+                        text: 'Bản đồ',
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => InteractiveMapPage(route: widget.route)),
+                          );
+                        },
+                        style: AppStyles.profileButton,
+                        backgroundColor: AppColors.primaryGreen,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          
+          // Page Indicator
+          Positioned(
+            bottom: MediaQuery.of(context).size.height * 0.4 + 10,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(_imageUrls.length, (index) {
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  height: 8,
+                  width: _currentPage == index ? 24 : 8,
+                  decoration: BoxDecoration(
+                    color: _currentPage == index ? AppColors.white : AppColors.white.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                );
+              }),
+            ),
           ),
         ],
       ),
@@ -216,58 +170,50 @@ class RouteProfilePage extends StatelessWidget {
   }
 
   Widget _buildStatBox(String mainValue, String subValue, String label) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.3),
-          width: 1.5,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                mainValue,
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  height: 1.0,
-                ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text(mainValue, style: AppStyles.statValue.copyWith(fontSize: 28)),
+            if (subValue.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Text(subValue, style: AppStyles.statUnit.copyWith(fontSize: 14)),
               ),
-              if (subValue.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(left: 2),
-                  child: Text(
-                    subValue,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 13,
-              color: Colors.white,
-              fontWeight: FontWeight.w400,
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(label, style: AppStyles.statLabel.copyWith(fontSize: 12), maxLines: 2),
+      ],
+    );
+  }
+
+  Widget _buildDurationStatBox(String days, String daysLabel, String nights, String nightsLabel, String label) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text(days, style: AppStyles.statValue.copyWith(fontSize: 28)),
+            Padding(
+              padding: const EdgeInsets.only(left: 2, right: 4),
+              child: Text(daysLabel, style: AppStyles.statUnit.copyWith(fontSize: 14)),
             ),
-            maxLines: 2,
-          ),
-        ],
-      ),
+            Text(nights, style: AppStyles.statValue.copyWith(fontSize: 28)),
+            Padding(
+              padding: const EdgeInsets.only(left: 2),
+              child: Text(nightsLabel, style: AppStyles.statUnit.copyWith(fontSize: 14)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(label, style: AppStyles.statLabel.copyWith(fontSize: 12), maxLines: 2),
+      ],
     );
   }
 }
