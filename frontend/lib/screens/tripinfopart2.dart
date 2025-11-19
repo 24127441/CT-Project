@@ -64,9 +64,9 @@ class _TripTimeScreenState extends State<TripTimeScreen> {
     // Xử lý kết quả trả về
     // Thư viện trả về List, ta cần đảm bảo có đủ 2 ngày (Start & End)
     if (results != null && results.length == 2 && results[0] != null && results[1] != null) {
-      // Vì thư viện có thể trả về thứ tự đảo lộn nếu chọn ngược, nên ta sort lại cho chắc
-      final start = results[0]!.isBefore(results[1]!) ? results[0]! : results[1]!;
-      final end = results[0]!.isBefore(results[1]!) ? results[1]! : results[0]!;
+      // Thư viện đã trả về ngày theo thứ tự (start, end), không cần sort lại
+      final start = results[0]!;
+      final end = results[1]!;
 
       context.read<TripProvider>().setTripDates(start, end);
     }
