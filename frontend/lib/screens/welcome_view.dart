@@ -44,11 +44,10 @@ class WelcomeView extends StatelessWidget {
                       ),
                     ],
                   ),
-                  // Thay 'assets/logo.png' bằng đường dẫn ảnh logo thật của bạn
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(24),
                     child: Image.asset(
-                      'assets/logo.png', 
+                      'assets/icon/app_icon.png', 
                       width: 160,
                       height: 160,
                       fit: BoxFit.cover,
