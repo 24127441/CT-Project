@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+import socket
 
 load_dotenv()
 
@@ -26,10 +27,28 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SECRET_KEY')
 
-# SECURITY WARNING: don't run with debug turned on in production!
+
 DEBUG = os.getenv('DEBUG') == 'True'
 
-ALLOWED_HOSTS = ['10.0.2.2', 'localhost', '127.0.0.1'] 
+def get_host_ip():
+    try:
+        # Tạo một kết nối giả đến Google DNS (8.8.8.8) để xác định IP mạng LAN
+        # Cách này chính xác hơn gethostname() vì nó chọn đúng card mạng đang có internet
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8', 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except:
+        return '127.0.0.1'
+
+HOST_IP = get_host_ip()
+
+# In ra terminal để bạn dễ kiểm tra lúc chạy server
+print(f"\n DETECTED SYSTEM IP: {HOST_IP}\n")
+
+ALLOWED_HOSTS = ['10.0.2.2', 'localhost', '127.0.0.1', HOST_IP]
+# ---------------------------------
 
 
 # Application definition

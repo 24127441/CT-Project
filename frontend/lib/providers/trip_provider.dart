@@ -3,7 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 class TripProvider with ChangeNotifier {
-  static const String _baseUrl = 'http://192.168.1.183:8000/api'; // Thay đổi URL này để chạy đc
+  // 1. Lấy IP từ biến môi trường 'SERVER_IP'.
+  // Nếu không có (ví dụ quên chạy script), mặc định về localhost của Android (10.0.2.2)
+  static const String _serverIp = String.fromEnvironment(
+      'SERVER_IP',
+      defaultValue: '10.0.2.2'
+  );
+
+  // 2. Ghép vào chuỗi URL
+  static const String _baseUrl = 'http://$_serverIp:8000/api';
   final String _jwtToken;
 
   TripProvider(this._jwtToken);
