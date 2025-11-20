@@ -11,6 +11,10 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,10 +24,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-$5xm=s0*ut_cm9y5ijcb=x+7dfow$v+e68w0q-ev!l2l4wxsy*'
+SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG') == 'True'
 
 ALLOWED_HOSTS = ['10.0.2.2', 'localhost', '127.0.0.1'] 
 
@@ -88,11 +92,11 @@ WSGI_APPLICATION = 'trek_guide_project.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'trekguide_db',
-        'USER': 'trekadmin',
-        'PASSWORD': 'fivepointcrew',  # <--- UPDATE THIS to match your SQL
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': os.getenv('DB_NAME', 'trekguide_db'),      # Reads DB_NAME from .env
+        'USER': os.getenv('DB_USER', 'postgres'),          # Reads DB_USER from .env
+        'PASSWORD': os.getenv('DB_PASSWORD', 'password'),  # Reads DB_PASSWORD from .env
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
 
@@ -162,7 +166,6 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 # Replace with your real Gmail address
-EMAIL_HOST_USER = 'voduyloc19122k6@gmail.com' 
-# Replace with the 16-char App Password you just generated (NOT your login password)
-EMAIL_HOST_PASSWORD = 'pcwz qmyf ocds ijtp'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')         # Reads from .env
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD') # Reads from .env
  
