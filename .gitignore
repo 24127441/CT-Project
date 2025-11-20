@@ -26,7 +26,6 @@ Thumbs.db
 
 # Secrets
 /backend/.env
-#/backend/*.env.*
 /backend/*.ini
 
 # ############################

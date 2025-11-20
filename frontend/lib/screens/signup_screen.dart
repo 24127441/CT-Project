@@ -5,7 +5,6 @@ import '../utils/app_colors.dart';
 import '../utils/app_styles.dart';
 import '../services/auth_service.dart'; // Import Service
 import 'otp_verification_screen.dart';
-import 'login_screen.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({Key? key}) : super(key: key);
