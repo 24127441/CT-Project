@@ -8,7 +8,7 @@ class AuthService {
 
   // Login Function
   Future<bool> login(String email, String password) async {
-    final url = Uri.parse('$baseUrl/login/');
+    final url = Uri.parse('\$baseUrl/login/');
     try {
       final response = await http.post(
         url,
@@ -19,18 +19,18 @@ class AuthService {
       if (response.statusCode == 200) {
         return true; // OTP sent successfully
       } else {
-        print('Login Failed: ${response.body}');
+        print('Login Failed: \${response.body}');
         return false;
       }
     } catch (e) {
-      print('Connection Error: $e');
+      print('Connection Error: \$e');
       return false;
     }
   }
 
   // Registration Function
   Future<bool> register(String email, String fullName, String password) async {
-    final url = Uri.parse('$baseUrl/register/');
+    final url = Uri.parse('\$baseUrl/register/');
     try {
       final response = await http.post(
         url,
@@ -46,18 +46,18 @@ class AuthService {
       if (response.statusCode == 201) {
         return true; // Registered & OTP sent
       } else {
-        print('Register Failed: ${response.body}');
+        print('Register Failed: \${response.body}');
         return false;
       }
     } catch (e) {
-      print('Connection Error: $e');
+      print('Connection Error: \$e');
       return false;
     }
   }
 
   // Verify OTP Function
   Future<Map<String, dynamic>?> verifyOtp(String email, String otp) async {
-    final url = Uri.parse('$baseUrl/verify-otp/');
+    final url = Uri.parse('\$baseUrl/verify-otp/');
     try {
       final response = await http.post(
         url,
@@ -69,11 +69,11 @@ class AuthService {
         // Returns the Access & Refresh tokens
         return jsonDecode(response.body); 
       } else {
-        print('Verification Failed: ${response.body}');
+        print('Verification Failed: \${response.body}');
         return null;
       }
     } catch (e) {
-      print('Connection Error: $e');
+      print('Connection Error: \$e');
       return null;
     }
   }

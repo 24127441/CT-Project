@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../widgets/custom_button.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_styles.dart';
@@ -10,8 +11,8 @@ class OtpVerificationScreen extends StatefulWidget {
   final String email; // Add email field
 
   const OtpVerificationScreen({
-    Key? key, 
-    required this.email // Require it in constructor
+    Key? key,
+    required this.email,
   }) : super(key: key);
 
   @override
@@ -19,30 +20,29 @@ class OtpVerificationScreen extends StatefulWidget {
 }
 
 class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
-  final List<TextEditingController> _otpControllers = 
+  final List<TextEditingController> _otpControllers =
       List.generate(4, (index) => TextEditingController());
-  final List<FocusNode> _focusNodes = 
+  final List<FocusNode> _focusNodes =
       List.generate(4, (index) => FocusNode());
   final AuthService _authService = AuthService();
   bool _isLoading = false;
 
   @override
   void dispose() {
-    for (var controller in _otpControllers) {
-      controller.dispose();
+    for (var c in _otpControllers) {
+      c.dispose();
     }
-    for (var node in _focusNodes) {
-      node.dispose();
+    for (var f in _focusNodes) {
+      f.dispose();
     }
     super.dispose();
   }
 
   Future<void> _handleVerification() async {
     String otp = _otpControllers.map((c) => c.text).join();
-    
     if (otp.length != 4) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter the full 4-digit code')),
+        const SnackBar(content: Text('Please enter the full 4-digit code')), 
       );
       return;
     }
@@ -56,9 +56,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
     if (result != null) {
       // SUCCESS: Token received
-      print("Access Token: ${result['access']}");
+      print("Access Token: \${result['access']}");
       // TODO: Save this token using flutter_secure_storage or SharedPreferences
-      
+
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
@@ -68,7 +68,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     } else {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid OTP or verification failed')),
+        const SnackBar(content: Text('Invalid OTP or verification failed')), 
       );
     }
   }
@@ -76,10 +76,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF5F5F5),
-        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.pop(context),
@@ -96,12 +93,12 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               const Text('Xác thực tài khoản', style: AppStyles.heading),
               const SizedBox(height: 8),
               Text(
-                'Nhập mã xác thực OTP chúng tôi đã gửi về:\n${widget.email}',
+                'Nhập mã xác thực OTP chúng tôi đã gửi về:\n\${widget.email}',
                 textAlign: TextAlign.center,
                 style: AppStyles.subheading,
               ),
               const SizedBox(height: 32),
-              
+
               // OTP Fields
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -137,10 +134,11 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   );
                 }),
               ),
+
               const SizedBox(height: 32),
-              
+
               // Verify Button
-              _isLoading 
+              _isLoading
                   ? const CircularProgressIndicator(color: AppColors.primaryGreen)
                   : CustomButton(text: 'Xác nhận', onPressed: _handleVerification),
             ],
