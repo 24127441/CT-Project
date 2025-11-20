@@ -20,27 +20,37 @@ class _LoginScreenState extends State<LoginScreen> {
   final AuthService _authService = AuthService();
   bool _isLoading = false;
 
+@override
+void dispose() {
+  _emailController.dispose();
+  _passwordController.dispose();
+  super.dispose();
+}
+
   Future<void> _handleLogin() async {
-    final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
+  final email = _emailController.text.trim();
+  final password = _passwordController.text.trim();
 
-    if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all fields')),
-      );
-      return;
-    }
+  // Basic validation
+  if (email.isEmpty || password.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please fill in all fields')),
+    );
+    return;
+  }
 
-    setState(() => _isLoading = true);
+  // Hide keyboard
+  FocusScope.of(context).unfocus();
 
-    // Call Backend
-    final success = await _authService.login(email, password);
+  if (!mounted) return;
+  setState(() => _isLoading = true);
 
-    setState(() => _isLoading = false);
+  try {
+    final bool success = await _authService.login(email, password);
+
+    if (!mounted) return;
 
     if (success) {
-      if (!mounted) return;
-      // Navigate to OTP screen passing the email
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -48,12 +58,20 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
     } else {
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Login failed. Check credentials.')),
       );
     }
+  } catch (error) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('An error occurred. Please try again.')),
+    );
+  } finally {
+    if (!mounted) return;
+    setState(() => _isLoading = false);
   }
+}
 
   @override
   Widget build(BuildContext context) {

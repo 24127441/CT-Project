@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+<<<<<<< Updated upstream
 
+=======
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+>>>>>>> Stashed changes
 import '../widgets/custom_button.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_styles.dart';
 import '../services/auth_service.dart'; // Import Service
 import 'home_screen.dart';
+
+final _secureStorage = const FlutterSecureStorage();
 
 class OtpVerificationScreen extends StatefulWidget {
   final String email; // Add email field
@@ -56,9 +62,17 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
     if (result != null) {
       // SUCCESS: Token received
+<<<<<<< Updated upstream
       print("Access Token: \${result['access']}");
       // TODO: Save this token using flutter_secure_storage or SharedPreferences
 
+=======
+      print("Access Token: ${result['access']}");
+      
+      // Save this token using flutter_secure_storage
+      await _secureStorage.write(key: 'access_token', value: result['access']);
+      
+>>>>>>> Stashed changes
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
