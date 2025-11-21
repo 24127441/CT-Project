@@ -23,6 +23,21 @@ desktop.ini
 # vim
 *.swp
 
+<<<<<<< HEAD
+# Path is specified as /backend/
+/backend/venv/
+/backend/*.pyc
+/backend/__pycache__/
+/backend/*.egg-info/
+/backend/*.egg
+/__pycache__/ 
+*.pyc
+
+# Secrets
+/backend/.env
+#/backend/*.env.*
+/backend/*.ini
+=======
 #############################
 # Python / Django
 #############################
@@ -31,6 +46,7 @@ desktop.ini
 __pycache__/
 *.py[cod]
 *$py.class
+>>>>>>> TripInfo
 
 # Distribution / packaging
 *.egg-info/
@@ -92,6 +108,17 @@ backend/*.env.*
 
 # Build outputs
 /frontend/build/
+<<<<<<< HEAD
+/frontend/.dart_tool/
+/frontend/.flutter-plugins
+/frontend/.flutter-plugins-dependencies
+/frontend/.packages
+/frontend/ios/Pods/
+/frontend/ios/.symlinks/
+/frontend/ios/Flutter/App.framework
+/frontend/ios/Flutter/engine.framework
+/frontend/ios/Flutter/Flutter.podspec
+=======
 /build/
 **/build/
 
@@ -165,3 +192,4 @@ secret_key*
 
 # Ignore any database in project root or subfolders
 *.db
+>>>>>>> TripInfo

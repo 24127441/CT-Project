@@ -12,13 +12,19 @@ class TripConfirmScreen extends StatefulWidget {
 }
 
 class _TripConfirmScreenState extends State<TripConfirmScreen> {
-  // Controller cho ô nhập tên (có thể dùng hoặc không, vì ta sẽ lưu thẳng vào provider)
   final TextEditingController _tripNameController = TextEditingController();
 
-  // Màu sắc
   final Color primaryGreen = const Color(0xFF4CAF50);
   final Color darkGreen = const Color(0xFF388E3C);
   final Color cardBackground = const Color(0xFFC8D7C8);
+
+  @override
+  void initState() {
+    super.initState();
+    // Tự động điền tên chuyến đi nếu đã có trong provider
+    final tripData = context.read<TripProvider>();
+    _tripNameController.text = tripData.tripName;
+  }
 
   @override
   void dispose() {
@@ -28,13 +34,14 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 1. LẤY DỮ LIỆU TỪ PROVIDER
     final tripData = context.watch<TripProvider>();
 
-    // 2. Xử lý hiển thị ngày tháng cho đẹp
+    // 2. Xử lý hiển thị Thời gian (Ngày đi - Ngày về)
     String displayDate = 'Chưa chọn';
-    if (tripData.startDate != null) {
-      displayDate = DateFormat('dd/MM/yyyy').format(tripData.startDate!);
+    if (tripData.startDate != null && tripData.endDate != null) {
+      String start = DateFormat('dd/MM/yyyy').format(tripData.startDate!);
+      String end = DateFormat('dd/MM/yyyy').format(tripData.endDate!);
+      displayDate = '$start - $end (${tripData.durationDays} ngày)';
     }
 
     return Scaffold(
@@ -46,14 +53,8 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Thông tin chuyến đi',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-            ),
-            Text(
-              'Bước 5/5',
-              style: TextStyle(color: Colors.white70, fontSize: 14),
-            ),
+            Text('Thông tin chuyến đi', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+            Text('Bước 5/5', style: TextStyle(color: Colors.white70, fontSize: 14)),
           ],
         ),
         backgroundColor: darkGreen,
@@ -66,47 +67,26 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 10),
-            const Text(
-              'Xác nhận thông tin',
-              style: TextStyle(
-                color: Colors.redAccent,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            const Text('Xác nhận thông tin', style: TextStyle(color: Colors.redAccent, fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            const Text(
-              'Hãy kiểm tra lại kĩ thông tin trước khi xác nhận!',
-              style: TextStyle(color: Colors.black54, fontSize: 14),
-            ),
+            const Text('Hãy kiểm tra lại kĩ thông tin trước khi xác nhận!', style: TextStyle(color: Colors.black54, fontSize: 14)),
             const SizedBox(height: 24),
 
-            // Input: Đặt tên cho chuyến đi
             Align(
               alignment: Alignment.centerLeft,
-              child: const Text(
-                'Đặt tên cho chuyến đi',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
+              child: const Text('Đặt tên cho chuyến đi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: _tripNameController,
-              // 3. LƯU TÊN CHUYẾN ĐI VÀO PROVIDER KHI GÕ
               onChanged: (value) {
                 context.read<TripProvider>().setTripName(value);
               },
               decoration: InputDecoration(
-                hintText: 'Ví dụ: Chuyến đi săn mây Tà Xùa', // Thêm hint text
+                hintText: 'Ví dụ: Chuyến đi săn mây Tà Xùa',
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Colors.green),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Colors.green),
-                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.green)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.green)),
                 filled: true,
                 fillColor: const Color(0xFFF9FFF9),
               ),
@@ -114,7 +94,7 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
 
             const SizedBox(height: 24),
 
-            // --- CARD TỔNG HỢP THÔNG TIN (DỮ LIỆU THẬT) ---
+            // --- CARD TỔNG HỢP ---
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
@@ -126,23 +106,21 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Hiển thị dữ liệu từ biến tripData
                   _buildSummaryItem('Địa điểm', tripData.searchLocation.isEmpty ? 'Chưa chọn' : tripData.searchLocation),
                   _buildSummaryItem('Thời gian', displayDate),
-                  // Ngân sách chưa có trong UI các bước trước, tạm để trống hoặc thêm sau
-                  _buildSummaryItem('Ngân sách', 'Chưa cấu hình'),
+
+                  // ĐÃ XÓA DÒNG NGÂN SÁCH Ở ĐÂY
+
                   _buildSummaryItem('Loại hình ngủ nghỉ', tripData.accommodation ?? 'Chưa chọn'),
                   _buildSummaryItem('Số người', tripData.paxGroup ?? 'Chưa chọn'),
                   _buildSummaryItem('Độ khó', tripData.difficultyLevel ?? 'Chưa chọn'),
 
-                  // Hiển thị Sở thích (Nếu có)
                   if (tripData.selectedInterests.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 8.0),
                       child: _buildSummaryItem('Sở thích', tripData.selectedInterests.join(', ')),
                     ),
 
-                  // Hiển thị Ghi chú (Nếu có)
                   if (tripData.note.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 8.0),
@@ -151,7 +129,6 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
                 ],
               ),
             ),
-
             const SizedBox(height: 40),
           ],
         ),
@@ -161,10 +138,8 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Row(
           children: [
-            // Nút Back
             Container(
-              width: 48,
-              height: 48,
+              width: 48, height: 48,
               decoration: BoxDecoration(
                   color: Colors.white,
                   border: Border.all(color: Colors.grey.shade300),
@@ -181,40 +156,42 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
             // Nút Lưu mẫu
             Expanded(
               child: ElevatedButton(
-                onPressed: () {
-                  print("Đã nhấn Lưu mẫu");
+                onPressed: () async {
+                  // GỌI API LƯU MẪU
+                  try {
+                    // Lấy tên mẫu (nếu người dùng chưa đặt tên trip, lấy tên mặc định)
+                    String tName = tripData.tripName.isEmpty ? "Mẫu mới ${DateTime.now().minute}" : tripData.tripName;
+
+                    await context.read<TripProvider>().saveHistoryInput(tName);
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Đã lưu mẫu thành công!'), backgroundColor: Colors.green)
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Lỗi khi lưu: $e'), backgroundColor: Colors.red)
+                    );
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
                   foregroundColor: Colors.black87,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    side: BorderSide(color: Colors.grey.shade300),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: Colors.grey.shade300)),
                   elevation: 1,
                 ),
-                child: const Text(
-                  'Lưu mẫu này',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
+                child: const Text('Lưu mẫu này', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
 
             const SizedBox(width: 12),
 
-            // Nút Xác nhận
+            // Nút Xác nhận (Sẽ chuyển sang màn hình Gợi ý Route)
             Expanded(
               child: ElevatedButton(
                 onPressed: () {
-                  // Debug: In ra console để kiểm tra dữ liệu trước khi gửi đi
-                  print("--- DỮ LIỆU SẴN SÀNG GỬI ---");
-                  print("Tên: ${tripData.tripName}");
-                  print("Địa điểm: ${tripData.searchLocation}");
-                  print("Ngày: $displayDate");
-                  print("Loại hình: ${tripData.accommodation}");
-
-                  // Chuyển sang màn hình chờ
+                  // Chuyển sang màn hình Chờ (WaitingScreen)
+                  // Tại đó sẽ gọi API fetchSuggestedRoutes()
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => const WaitingScreen()),
@@ -223,15 +200,10 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryGreen,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   elevation: 2,
                 ),
-                child: const Text(
-                  'Xác nhận',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                ),
+                child: const Text('Xác nhận', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ),
           ],
@@ -246,23 +218,9 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.green.shade800,
-              fontWeight: FontWeight.bold,
-              fontSize: 15,
-            ),
-          ),
+          Text(label, style: TextStyle(color: Colors.green.shade800, fontWeight: FontWeight.bold, fontSize: 15)),
           const SizedBox(height: 2),
-          Text(
-            value,
-            style: TextStyle(
-              color: Colors.grey.shade700,
-              fontSize: 15, // Tăng font size một chút cho dễ đọc
-              height: 1.3,
-            ),
-          ),
+          Text(value, style: TextStyle(color: Colors.grey.shade700, fontSize: 15, height: 1.3)),
         ],
       ),
     );

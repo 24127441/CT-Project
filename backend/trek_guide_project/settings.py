@@ -11,6 +11,11 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+import socket
+
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,12 +25,30 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-$5xm=s0*ut_cm9y5ijcb=x+7dfow$v+e68w0q-ev!l2l4wxsy*'
+SECRET_KEY = os.getenv('SECRET_KEY')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
 
-ALLOWED_HOSTS = []
+DEBUG = os.getenv('DEBUG') == 'True'
+
+def get_host_ip():
+    try:
+        # Tạo một kết nối giả đến Google DNS (8.8.8.8) để xác định IP mạng LAN
+        # Cách này chính xác hơn gethostname() vì nó chọn đúng card mạng đang có internet
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8', 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except:
+        return '127.0.0.1'
+
+HOST_IP = get_host_ip()
+
+# In ra terminal để bạn dễ kiểm tra lúc chạy server
+print(f"\n DETECTED SYSTEM IP: {HOST_IP}\n")
+
+ALLOWED_HOSTS = ['10.0.2.2', 'localhost', '127.0.0.1', HOST_IP]
+# ---------------------------------
 
 
 # Application definition
@@ -46,9 +69,8 @@ INSTALLED_APPS = [
     # Local apps
     'users',
     'routes',
-    'plans',
+    'plan',
     'safety',
-
 
 ]
 
@@ -85,17 +107,27 @@ WSGI_APPLICATION = 'trek_guide_project.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'trekguide_db',
+#         'USER': 'postgres',
+#         'PASSWORD': 'fivepointcrew',
+#         'HOST': 'localhost',         # Địa chỉ máy chủ cơ sở dữ liệu
+#         'PORT': '5432',              # Cổng mặc định của PostgreSQL
+#     }
+# }
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'trekguide_db',
-        'USER': 'postgres',
-        'PASSWORD': 'fivepointcrew',
-        'HOST': 'localhost',         # Địa chỉ máy chủ cơ sở dữ liệu
-        'PORT': '5432',              # Cổng mặc định của PostgreSQL
+        'NAME': os.getenv('DB_NAME', 'trekguide_db'),      # Reads DB_NAME from .env
+        'USER': os.getenv('DB_USER', 'postgres'),          # Reads DB_USER from .env
+        'PASSWORD': os.getenv('DB_PASSWORD', 'password'),  # Reads DB_PASSWORD from .env
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
-
 # Custom user model
 AUTH_USER_MODEL = 'users.User'
 
@@ -154,3 +186,14 @@ REST_FRAMEWORK = {
         'djangorestframework_camel_case.parser.CamelCaseJSONParser',
     ),
 }
+
+
+# EMAIL CONFIGURATION
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+# Replace with your real Gmail address
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')         # Reads from .env
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD') # Reads from .env
+ 
