@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/trip_provider.dart';
 import 'trip_info_waiting_screen.dart';
+import 'home_screen.dart'; // Import HomePage
 
 class TripConfirmScreen extends StatefulWidget {
   const TripConfirmScreen({super.key});
@@ -21,7 +22,6 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
   @override
   void initState() {
     super.initState();
-    // Auto-fill trip name from provider
     final tripData = context.read<TripProvider>();
     _tripNameController.text = tripData.tripName;
   }
@@ -47,7 +47,14 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            // FIXED: Top Left goes to Home
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => const HomePage()),
+              (route) => false,
+            );
+          },
         ),
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -71,16 +78,11 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
             const Text('Hãy kiểm tra lại kĩ thông tin trước khi xác nhận!', style: TextStyle(color: Colors.black54, fontSize: 14)),
             const SizedBox(height: 24),
 
-            Align(
-              alignment: Alignment.centerLeft,
-              child: const Text('Đặt tên cho chuyến đi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            ),
+            Align(alignment: Alignment.centerLeft, child: const Text('Đặt tên cho chuyến đi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
             const SizedBox(height: 8),
             TextField(
               controller: _tripNameController,
-              onChanged: (value) {
-                context.read<TripProvider>().setTripName(value);
-              },
+              onChanged: (value) => context.read<TripProvider>().setTripName(value),
               decoration: InputDecoration(
                 hintText: 'Ví dụ: Chuyến đi săn mây Tà Xùa',
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -93,15 +95,10 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
 
             const SizedBox(height: 24),
 
-            // --- SUMMARY CARD ---
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: cardBackground,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade400),
-              ),
+              decoration: BoxDecoration(color: cardBackground, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade400)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -110,18 +107,10 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
                   _buildSummaryItem('Loại hình ngủ nghỉ', tripData.accommodation ?? 'Chưa chọn'),
                   _buildSummaryItem('Số người', tripData.paxGroup ?? 'Chưa chọn'),
                   _buildSummaryItem('Độ khó', tripData.difficultyLevel ?? 'Chưa chọn'),
-
                   if (tripData.selectedInterests.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: _buildSummaryItem('Sở thích', tripData.selectedInterests.join(', ')),
-                    ),
-
+                    Padding(padding: const EdgeInsets.only(top: 8.0), child: _buildSummaryItem('Sở thích', tripData.selectedInterests.join(', '))),
                   if (tripData.note.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: _buildSummaryItem('Ghi chú', tripData.note),
-                    ),
+                    Padding(padding: const EdgeInsets.only(top: 8.0), child: _buildSummaryItem('Ghi chú', tripData.note)),
                 ],
               ),
             ),
@@ -136,64 +125,35 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
           children: [
             Container(
               width: 48, height: 48,
-              decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 2, offset: Offset(0,1))]
-              ),
+              decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(8), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 2, offset: Offset(0,1))]),
               child: IconButton(
                 icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: Colors.black87),
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => Navigator.pop(context), // Bottom Left Button (Back to Step 4)
               ),
             ),
             const SizedBox(width: 12),
-
-            // SAVE TEMPLATE BUTTON
             Expanded(
               child: ElevatedButton(
                 onPressed: () async {
                   try {
                     String tName = tripData.tripName.isEmpty ? "Mẫu mới ${DateTime.now().minute}" : tripData.tripName;
                     await context.read<TripProvider>().saveHistoryInput(tName);
-
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Đã lưu mẫu thành công!'), backgroundColor: Colors.green)
-                    );
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã lưu mẫu thành công!'), backgroundColor: Colors.green));
                   } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Lỗi khi lưu: $e'), backgroundColor: Colors.red)
-                    );
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi khi lưu: $e'), backgroundColor: Colors.red));
                   }
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black87,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: Colors.grey.shade300)),
-                  elevation: 1,
-                ),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black87, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: Colors.grey.shade300)), elevation: 1),
                 child: const Text('Lưu mẫu này', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
-
             const SizedBox(width: 12),
-
-            // CONFIRM BUTTON -> Waiting Screen
             Expanded(
               child: ElevatedButton(
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const WaitingScreen()),
-                  );
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const WaitingScreen()));
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryGreen,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  elevation: 2,
-                ),
+                style: ElevatedButton.styleFrom(backgroundColor: primaryGreen, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)), elevation: 2),
                 child: const Text('Xác nhận', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ),

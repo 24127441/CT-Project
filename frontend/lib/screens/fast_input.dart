@@ -1,47 +1,37 @@
 import 'package:flutter/material.dart';
-import 'tripinfopart1.dart'; // FIXED: Points to the backend-compatible TripInfoScreen
+import 'package:provider/provider.dart';
+import '../models/trip_template.dart';
+import '../services/template_service.dart';
+import '../providers/trip_provider.dart';
+// Import all steps to build the navigation stack
+import 'tripinfopart1.dart';
+import 'tripinfopart2.dart';
+import 'tripinfopart3.dart';
+import 'tripinfopart4.dart';
+import 'tripinfopart5.dart';
 
-class Trip {
-  final String title;
-  final String subtitle;
-  final String imageAsset;
+class TripListView extends StatefulWidget {
+  const TripListView({super.key});
 
-  Trip({
-    required this.title,
-    required this.subtitle,
-    required this.imageAsset,
-  });
+  @override
+  State<TripListView> createState() => _TripListViewState();
 }
 
-class TripListView extends StatelessWidget {
-  TripListView({super.key});
+class _TripListViewState extends State<TripListView> {
+  final TemplateService _templateService = TemplateService();
+  late Future<List<TripTemplate>> _templatesFuture;
 
-  final List<Trip> trips = [
-    Trip(
-      title: 'Núi chứa chan - Đồng Nai',
-      subtitle:
-      'Gần Sài Gòn. Có thể cắm trại qua đêm, view hoàng hôn/bình minh xuống đồng bằng rất thoáng và đẹp.',
-      imageAsset: 'assets/images/image.jpg',
-    ),
-    Trip(
-      title: 'Mũi Đôi - Khánh Hòa',
-      subtitle:
-      'Cắm trại sát biển (BBQ hải sản). Gần bãi cắm trại có suối nước ngọt để tắm. Gió biển thoáng mát.',
-      imageAsset: 'assets/images/33Muidoihondau01.jpg',
-    ),
-    Trip(
-      title: 'Pù Luông - Thanh Hóa',
-      subtitle:
-      'Thăm quan trải nghiệm ruộng bậc thang tuyệt đẹp, chụp ảnh săn mây buổi sáng sớm, trekking các cung đường đỉnh đồi đẹp.',
-      imageAsset: 'assets/images/dia-chi-pu-luong.jpg',
-    ),
-    Trip(
-      title: 'Vườn quốc gia Bạch Mã - Huế',
-      subtitle:
-      'Cung đi trong ngày, không cắm trại. Điểm nhấn là trekking qua Ngũ Hồ, nơi có 5 hồ nước trong vắt, cực kỳ lý tưởng để tắm.',
-      imageAsset: 'assets/images/sm_vuon_quoc_gia_bach_ma_ec2642a14c.jpg',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _refreshTemplates();
+  }
+
+  void _refreshTemplates() {
+    setState(() {
+      _templatesFuture = _templateService.getTemplates();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,45 +41,50 @@ class TripListView extends StatelessWidget {
         child: Column(
           children: [
             const SizedBox(height: 8),
-            // Header có nút back + title
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Row(
                 children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
                       'Mẫu nhập nhanh',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 8),
-            // List card
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.only(
-                  bottom: 16,
-                  left: 16,
-                  right: 16,
-                ),
-                itemCount: trips.length,
-                itemBuilder: (context, index) {
-                  final trip = trips[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 16.0),
-                    child: TripCard(trip: trip),
+              child: FutureBuilder<List<TripTemplate>>(
+                future: _templatesFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator(color: Color(0xFF4CAF50)));
+                  } else if (snapshot.hasError) {
+                    return Center(child: Text('Lỗi: ${snapshot.error}'));
+                  } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return _buildEmptyState();
+                  }
+
+                  final templates = snapshot.data!;
+                  return RefreshIndicator(
+                    onRefresh: () async => _refreshTemplates(),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      itemCount: templates.length,
+                      itemBuilder: (context, index) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16.0),
+                          child: _buildTemplateCard(context, templates[index]),
+                        );
+                      },
+                    ),
                   );
                 },
               ),
@@ -99,88 +94,105 @@ class TripListView extends StatelessWidget {
       ),
     );
   }
-}
 
-class TripCard extends StatelessWidget {
-  final Trip trip;
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.post_add, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text("Bạn chưa có mẫu nào.", style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+          const SizedBox(height: 8),
+          const Text(
+            "Hãy tạo một chuyến đi và nhấn 'Lưu mẫu'\nở bước cuối cùng.",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 14, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
 
-  const TripCard({super.key, required this.trip});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildTemplateCard(BuildContext context, TripTemplate template) {
     return GestureDetector(
       onTap: () {
-        // Here we can populate the Provider with data from 'trip' before pushing
-        // For now, it just opens the wizard
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const TripInfoScreen()),
-        );
+        // 1. Apply template data to Provider
+        context.read<TripProvider>().applyTemplate(template);
+
+        // 2. BUILD THE STACK: Push Step 1 -> 2 -> 3 -> 4 -> 5
+        // We use PageRouteBuilder with zero duration to make it look instant to the user.
+        // This ensures that pressing "Back" in Step 5 takes them to Step 4.
+        Navigator.push(context, _noAnimRoute(const TripInfoScreen()));    // Step 1
+        Navigator.push(context, _noAnimRoute(const TripTimeScreen()));    // Step 2
+        Navigator.push(context, _noAnimRoute(const TripLevelScreen()));   // Step 3
+        Navigator.push(context, _noAnimRoute(const TripRequestScreen())); // Step 4
+        Navigator.push(context, _noAnimRoute(const TripConfirmScreen())); // Step 5
       },
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
         child: Stack(
           children: [
-            // Ảnh nền
-            AspectRatio(
-              aspectRatio: 9 / 5, // chỉnh cho giống Figma
-              child: Image.asset(
-                trip.imageAsset,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  // Fallback if asset is missing
-                  return Container(color: Colors.grey.shade300);
-                },
-              ),
-            ),
-            // Gradient tối dần ở dưới
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withOpacity(0.05),
-                      Colors.black.withOpacity(0.6),
-                    ],
-                  ),
+            Container(
+              height: 180,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF425E3C), Color(0xFF2E7D32)],
                 ),
               ),
             ),
-            // Text tiêu đề + mô tả
-            Positioned(
-              left: 20,
-              right: 20,
-              bottom: 20,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    trip.title,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                      height: 1.1,
+            Positioned.fill(
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(color: Colors.black.withOpacity(0.2)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      template.name,
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    trip.subtitle,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.white,
-                      height: 1.3,
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on, color: Colors.white70, size: 14),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            "${template.location} • ${template.durationDays} ngày",
+                            style: const TextStyle(color: Colors.white70, fontSize: 14),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Text(
+                      "${template.accommodation} • ${template.paxGroup}",
+                      style: const TextStyle(color: Colors.white60, fontSize: 13),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  // Helper for instant navigation (No Animation)
+  PageRouteBuilder _noAnimRoute(Widget page) {
+    return PageRouteBuilder(
+      pageBuilder: (context, animation, secondaryAnimation) => page,
+      transitionDuration: Duration.zero,
+      reverseTransitionDuration: Duration.zero,
     );
   }
 }
