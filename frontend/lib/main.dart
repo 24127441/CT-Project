@@ -3,12 +3,12 @@ import 'screens/welcome_view.dart';
 import 'package:provider/provider.dart';
 import 'providers/trip_provider.dart';
 
-
 void main() {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => TripProvider('')),
+        // FIXED: Removed the empty string argument. TripProvider() takes no arguments.
+        ChangeNotifierProvider(create: (_) => TripProvider()),
       ],
       child: const MyApp(),
     ),

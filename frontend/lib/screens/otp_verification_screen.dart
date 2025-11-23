@@ -3,15 +3,16 @@ import 'package:flutter/services.dart';
 import '../widgets/custom_button.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_styles.dart';
-import '../services/auth_service.dart'; // Import Service
+import '../services/auth_service.dart';
+import '../services/token_service.dart'; // 1. Import TokenService
 import 'home_screen.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
-  final String email; // Add email field
+  final String email; 
 
   const OtpVerificationScreen({
     Key? key, 
-    required this.email // Require it in constructor
+    required this.email
   }) : super(key: key);
 
   @override
@@ -23,7 +24,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       List.generate(4, (index) => TextEditingController());
   final List<FocusNode> _focusNodes = 
       List.generate(4, (index) => FocusNode());
+  
   final AuthService _authService = AuthService();
+  final TokenService _tokenService = TokenService(); // 2. Initialize TokenService
+  
   bool _isLoading = false;
 
   @override
@@ -55,10 +59,13 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     setState(() => _isLoading = false);
 
     if (result != null) {
-      // SUCCESS: Token received
-      print("Access Token: ${result['access']}");
-      // TODO: Save this token using flutter_secure_storage or SharedPreferences
-      
+      // 3. RESOLVED: Save the token to secure storage
+      final accessToken = result['access'];
+      if (accessToken != null) {
+        await _tokenService.saveToken(accessToken);
+        print("✅ Token saved successfully");
+      }
+
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
@@ -72,8 +79,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       );
     }
   }
-
-  // ... imports remain the same ...
 
   @override
   Widget build(BuildContext context) {
@@ -90,7 +95,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         centerTitle: true,
       ),
       body: SafeArea(
-        // WRAP IN SingleChildScrollView
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(24.0),

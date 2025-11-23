@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'tripinfopart1.dart'; // Import the Trip Info Screen (Step 1)
+import 'tripinfopart1.dart'; // CORRECT: Uses the separated step 1 file for backend flow
+import 'fast_input.dart';     // CORRECT: Import Fast Input
+import 'trip_dashboard.dart'; // CORRECT: Import Dashboard for "Chuyến đi đã tạo"
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -20,7 +22,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       body: Column(
         children: [
-          // 1. HEADER SECTION
+          // 1. HEADER SECTION (Kept from HEAD/Develop branch for the visual overlay)
           Expanded(
             flex: 4,
             child: Stack(
@@ -35,7 +37,7 @@ class _HomePageState extends State<HomePage> {
                     "HOME PAGE",
                     style: TextStyle(
                       fontSize: 28,
-                      fontWeight: FontWeight.w900, // Extra bold to match ArchivoBlack
+                      fontWeight: FontWeight.w900,
                       color: Colors.white.withOpacity(0.9),
                       letterSpacing: 1.5,
                     ),
@@ -50,7 +52,6 @@ class _HomePageState extends State<HomePage> {
                   child: Container(
                     decoration: const BoxDecoration(
                       image: DecorationImage(
-                        // Using a placeholder mountain image
                         image: NetworkImage(
                             'https://images.unsplash.com/photo-1506617524003-b71686086a0b?q=80&w=1000&auto=format&fit=crop'),
                         fit: BoxFit.cover,
@@ -150,7 +151,7 @@ class _HomePageState extends State<HomePage> {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          // Navigating to Step 1 (TripInfoScreen)
+                                          // Connects to the BACKEND-READY Step 1 screen
                                           builder: (context) => const TripInfoScreen(),
                                         ),
                                       );
@@ -162,8 +163,13 @@ class _HomePageState extends State<HomePage> {
                                   child: _buildActionButton(
                                     "Nhập nhanh",
                                     onTap: () {
-                                      // Placeholder for "Nhập nhanh" action
-                                      print("Nhập nhanh pressed");
+                                      // Connects to FAST INPUT screen
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => TripListView(),
+                                        ),
+                                      );
                                     },
                                   ),
                                 ),
@@ -178,24 +184,33 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 20),
 
                   // Card 2: Chuyến đi đã tạo
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
-                        )
-                      ],
-                    ),
-                    padding: const EdgeInsets.all(20),
-                    child: _buildCardContent(
-                      icon: Icons.receipt_long_outlined,
-                      title: "Chuyến đi đã tạo",
-                      subtitle: "Xem các kế hoạch đã lưu",
-                      isDarkBg: false,
+                  GestureDetector(
+                    onTap: () {
+                      // Connects to DASHBOARD screen
+                      Navigator.push(
+                        context, 
+                        MaterialPageRoute(builder: (context) => const TripDashboard())
+                      );
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          )
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(20),
+                      child: _buildCardContent(
+                        icon: Icons.receipt_long_outlined,
+                        title: "Chuyến đi đã tạo",
+                        subtitle: "Xem các kế hoạch đã lưu",
+                        isDarkBg: false,
+                      ),
                     ),
                   ),
 
@@ -289,8 +304,6 @@ class _HomePageState extends State<HomePage> {
     ));
   }
 
-  // Helper for the white buttons inside the expanded green card
-  // Updated to accept an onTap callback
   Widget _buildActionButton(String text, {VoidCallback? onTap}) {
     return GestureDetector(
       onTap: onTap,

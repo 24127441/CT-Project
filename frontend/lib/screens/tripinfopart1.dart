@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/trip_provider.dart';
-import '../utils/vietnam_data.dart'; // Import file dữ liệu 63 tỉnh thành
+import '../utils/vietnam_data.dart'; 
 import 'tripinfopart2.dart';
+import 'home_screen.dart'; // Import HomePage
 
 class TripInfoScreen extends StatelessWidget {
   const TripInfoScreen({super.key});
@@ -12,21 +13,23 @@ class TripInfoScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // LƯU Ý: Không dùng context.watch() ở đây để tránh vẽ lại toàn bộ màn hình khi gõ chữ
-
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            // FIXED: Go straight back to Home (Cancel Wizard)
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => const HomePage()),
+              (route) => false,
+            );
+          },
         ),
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Thông tin chuyến đi',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-            ),
+            Text('Thông tin chuyến đi', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
             Text('Bước 1/5', style: TextStyle(color: Colors.white70, fontSize: 14)),
           ],
         ),
@@ -41,16 +44,10 @@ class TripInfoScreen extends StatelessWidget {
             children: [
               const Text('Địa điểm trekking', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
-
-              // --- Ô NHẬP LIỆU THÔNG MINH (AUTOCOMPLETE & KHÔNG DẤU) ---
               const _LocationInput(),
-
               const SizedBox(height: 24),
-
-              // --- CÁC NÚT BẤM (Dùng Consumer để lắng nghe thay đổi màu sắc) ---
               const Text('Loại hình nghỉ ngơi', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
-
               Consumer<TripProvider>(
                 builder: (context, tripData, _) => Column(
                   children: [
@@ -77,12 +74,9 @@ class TripInfoScreen extends StatelessWidget {
                   ],
                 ),
               ),
-
               const SizedBox(height: 24),
-
               const Text('Số người đi cùng', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
-
               Consumer<TripProvider>(
                 builder: (context, tripData, _) => Column(
                   children: [
@@ -140,12 +134,7 @@ class TripInfoScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildChoiceButton({
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-    required Color primaryGreen,
-  }) {
+  Widget _buildChoiceButton({required String label, required bool isSelected, required VoidCallback onTap, required Color primaryGreen}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -168,16 +157,12 @@ class TripInfoScreen extends StatelessWidget {
   }
 }
 
-// --- WIDGET NHẬP LIỆU RIÊNG BIỆT (XỬ LÝ GỢI Ý & KHÔNG DẤU) ---
 class _LocationInput extends StatelessWidget {
   const _LocationInput();
 
-  // 1. Hàm tiện ích: Xóa dấu Tiếng Việt để so sánh
-  // Đầu vào: "Lào Cai" -> Đầu ra: "lao cai"
   String _removeDiacritics(String str) {
     const withDia = 'áàảãạăắằẳẵặâấầẩẫậđéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵ';
     const withoutDia = 'aaaaaaaaaaaaaaaaadeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyy';
-
     str = str.toLowerCase();
     for (int i = 0; i < withDia.length; i++) {
       str = str.replaceAll(withDia[i], withoutDia[i]);
@@ -188,58 +173,35 @@ class _LocationInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final initialValue = context.read<TripProvider>().searchLocation;
-
     return Autocomplete<String>(
       initialValue: TextEditingValue(text: initialValue),
-
-      // 2. Logic lọc dữ liệu THÔNG MINH (Hỗ trợ không dấu)
       optionsBuilder: (TextEditingValue textEditingValue) {
         final inputText = textEditingValue.text;
-        if (inputText.isEmpty) {
-          return const Iterable<String>.empty();
-        }
-
-        // Chuẩn hóa từ khóa nhập vào (bỏ dấu + chữ thường)
+        if (inputText.isEmpty) return const Iterable<String>.empty();
         final query = _removeDiacritics(inputText);
-
         return VietnamData.provinces.where((String option) {
-          // Chuẩn hóa tên tỉnh thành trong danh sách (bỏ dấu + chữ thường)
           final optionClean = _removeDiacritics(option);
-
-          // So sánh chuỗi không dấu
           return optionClean.contains(query);
         });
       },
-
-      // 3. Xử lý khi chọn
       onSelected: (String selection) {
         context.read<TripProvider>().setSearchLocation(selection);
-        FocusScope.of(context).unfocus(); // Ẩn bàn phím
+        FocusScope.of(context).unfocus();
       },
-
-      // 4. Giao diện ô nhập (Giữ nguyên style cũ)
       fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
         return TextField(
           controller: textEditingController,
           focusNode: focusNode,
-          onChanged: (value) {
-            // Cập nhật Provider khi gõ (để lưu cả những từ khóa không có trong list)
-            context.read<TripProvider>().setSearchLocation(value);
-          },
+          onChanged: (value) => context.read<TripProvider>().setSearchLocation(value),
           decoration: InputDecoration(
             hintText: 'Search (VD: Bình Định...)',
             prefixIcon: const Icon(Icons.search, color: Colors.black54),
-            border: const OutlineInputBorder(
-              borderRadius: BorderRadius.all(Radius.circular(12.0)),
-              borderSide: BorderSide.none,
-            ),
+            border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12.0)), borderSide: BorderSide.none),
             filled: true,
             fillColor: Colors.grey.shade200,
           ),
         );
       },
-
-      // 5. Giao diện List gợi ý
       optionsViewBuilder: (context, onSelected, options) {
         return Align(
           alignment: Alignment.topLeft,
@@ -259,11 +221,7 @@ class _LocationInput extends StatelessWidget {
                     onTap: () => onSelected(option),
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                      decoration: BoxDecoration(
-                        border: index != options.length - 1
-                            ? Border(bottom: BorderSide(color: Colors.grey.shade200))
-                            : null,
-                      ),
+                      decoration: BoxDecoration(border: index != options.length - 1 ? Border(bottom: BorderSide(color: Colors.grey.shade200)) : null),
                       child: Text(option, style: const TextStyle(fontSize: 15, color: Colors.black87)),
                     ),
                   );
