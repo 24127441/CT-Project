@@ -21,7 +21,7 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
   @override
   void initState() {
     super.initState();
-    // Tự động điền tên chuyến đi nếu đã có trong provider
+    // Auto-fill trip name from provider
     final tripData = context.read<TripProvider>();
     _tripNameController.text = tripData.tripName;
   }
@@ -36,7 +36,6 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
   Widget build(BuildContext context) {
     final tripData = context.watch<TripProvider>();
 
-    // 2. Xử lý hiển thị Thời gian (Ngày đi - Ngày về)
     String displayDate = 'Chưa chọn';
     if (tripData.startDate != null && tripData.endDate != null) {
       String start = DateFormat('dd/MM/yyyy').format(tripData.startDate!);
@@ -94,7 +93,7 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
 
             const SizedBox(height: 24),
 
-            // --- CARD TỔNG HỢP ---
+            // --- SUMMARY CARD ---
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
@@ -108,9 +107,6 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
                 children: [
                   _buildSummaryItem('Địa điểm', tripData.searchLocation.isEmpty ? 'Chưa chọn' : tripData.searchLocation),
                   _buildSummaryItem('Thời gian', displayDate),
-
-                  // ĐÃ XÓA DÒNG NGÂN SÁCH Ở ĐÂY
-
                   _buildSummaryItem('Loại hình ngủ nghỉ', tripData.accommodation ?? 'Chưa chọn'),
                   _buildSummaryItem('Số người', tripData.paxGroup ?? 'Chưa chọn'),
                   _buildSummaryItem('Độ khó', tripData.difficultyLevel ?? 'Chưa chọn'),
@@ -153,15 +149,12 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
             ),
             const SizedBox(width: 12),
 
-            // Nút Lưu mẫu
+            // SAVE TEMPLATE BUTTON
             Expanded(
               child: ElevatedButton(
                 onPressed: () async {
-                  // GỌI API LƯU MẪU
                   try {
-                    // Lấy tên mẫu (nếu người dùng chưa đặt tên trip, lấy tên mặc định)
                     String tName = tripData.tripName.isEmpty ? "Mẫu mới ${DateTime.now().minute}" : tripData.tripName;
-
                     await context.read<TripProvider>().saveHistoryInput(tName);
 
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -186,12 +179,10 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
 
             const SizedBox(width: 12),
 
-            // Nút Xác nhận (Sẽ chuyển sang màn hình Gợi ý Route)
+            // CONFIRM BUTTON -> Waiting Screen
             Expanded(
               child: ElevatedButton(
                 onPressed: () {
-                  // Chuyển sang màn hình Chờ (WaitingScreen)
-                  // Tại đó sẽ gọi API fetchSuggestedRoutes()
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => const WaitingScreen()),

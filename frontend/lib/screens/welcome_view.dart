@@ -8,7 +8,6 @@ class WelcomeView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Sử dụng Stack hoặc Container để làm nền Gradient
       body: Container(
         width: double.infinity,
         height: double.infinity,
@@ -17,9 +16,9 @@ class WelcomeView extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFFE0F2F1), // Màu trắng xanh nhạt ở góc trên
-              Color(0xFFA5D6A7), // Màu xanh lá nhạt ở giữa
-              Color(0xFF66BB6A), // Màu xanh lá đậm hơn ở dưới
+              Color(0xFFE0F2F1), // Light Cyan
+              Color(0xFFA5D6A7), // Light Green
+              Color(0xFF66BB6A), // Darker Green
             ],
             stops: [0.0, 0.5, 1.0],
           ),
@@ -51,7 +50,6 @@ class WelcomeView extends StatelessWidget {
                       width: 160,
                       height: 160,
                       fit: BoxFit.cover,
-                      // Placeholder khi chưa có ảnh thật
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
                           width: 160, 
@@ -66,13 +64,13 @@ class WelcomeView extends StatelessWidget {
                 
                 const SizedBox(height: 20),
                 
-                // --- TÊN ỨNG DỤNG ---
+                // --- APP NAME ---
                 const Text(
                   "TREK GUIDE",
                   style: TextStyle(
                     fontSize: 32,
-                    fontWeight: FontWeight.w900, // Font đậm
-                    color: Color(0xFF1B5E20), // Màu xanh đen đậm
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF1B5E20),
                     letterSpacing: 1.2,
                   ),
                 ),
@@ -86,24 +84,24 @@ class WelcomeView extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.black87,
-                    height: 1.5, // Khoảng cách dòng
+                    height: 1.5,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
                 
                 const SizedBox(height: 30),
 
-                // --- NÚT 1: BẮT ĐẦU KHÁM PHÁ ---
+                // --- BUTTON 1: START EXPLORING ---
                 SizedBox(
                   width: double.infinity,
                   height: 56,
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => SignupScreen()));
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const SignupScreen()));
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF56AB2F), // Màu xanh lá tươi
-                      foregroundColor: Colors.white, // Màu chữ
+                      backgroundColor: const Color(0xFF56AB2F),
+                      foregroundColor: Colors.white,
                       elevation: 4,
                       shadowColor: Colors.greenAccent.withOpacity(0.4),
                       shape: RoundedRectangleBorder(
@@ -122,19 +120,18 @@ class WelcomeView extends StatelessWidget {
 
                 const SizedBox(height: 16),
 
-                // --- NÚT 2: ĐÃ CÓ TÀI KHOẢN? ---
-                // Nút này có hiệu ứng trong suốt (glassmorphism) nhẹ
+                // --- BUTTON 2: ALREADY HAVE ACCOUNT ---
                 SizedBox(
                   width: double.infinity,
                   height: 56,
                   child: OutlinedButton(
                     onPressed: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => LoginScreen()));
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
                     },
                     style: OutlinedButton.styleFrom(
-                      backgroundColor: Colors.white.withOpacity(0.25), // Nền trắng mờ
-                      foregroundColor: Colors.white, // Màu chữ
-                      side: const BorderSide(color: Colors.white, width: 1.5), // Viền trắng
+                      backgroundColor: Colors.white.withOpacity(0.25),
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white, width: 1.5),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
