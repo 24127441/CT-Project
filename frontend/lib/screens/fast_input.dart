@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'tripinfopart1.dart';
+import 'trip_info.dart';
 
 class Trip {
   final String title;

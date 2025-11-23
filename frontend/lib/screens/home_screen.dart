@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'tripinfopart1.dart'; // Step 1
+import 'trip_info.dart';
 import 'trip_list.dart'; // Trip List Screen
 import 'fast_input.dart' as fast_input; // Fast Input Screen
 
@@ -24,19 +24,13 @@ class _HomePageState extends State<HomePage> {
         child: SingleChildScrollView(
           child: Column(
             children: [
-              // ====== HEADER GREEN + TITLE + DOT ======
+              // ====== HEADER GREEN + TITLE ======
               Container(
                 width: double.infinity,
                 color: kForestGreen,
                 padding: const EdgeInsets.only(top: 16, bottom: 12),
                 child: Column(
                   children: [
-                    const SizedBox(height: 4),
-                    // chấm đen
-                    const CircleAvatar(
-                      radius: 16,
-                      backgroundColor: Colors.black,
-                    ),
                     const SizedBox(height: 16),
                     Text(
                       'HOME PAGE',

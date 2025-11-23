@@ -38,18 +38,13 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-    # Third-party apps
+    # Các thư viện bên thứ 3 (nếu có)
     'rest_framework',
-    'rest_framework_simplejwt',
-    'djangorestframework_camel_case',
+    # ...
 
-    # Local apps
-    'users',
-    'routes',
-    'plans',
-    'safety',
-
-
+    # App của bạn (THÊM DÒNG NÀY)
+    'plan',
+    'users', # (Nếu có app users thì để, không thì thôi)
 ]
 
 MIDDLEWARE = [
@@ -88,11 +83,11 @@ WSGI_APPLICATION = 'trek_guide_project.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'trekguide_db',
-        'USER': 'postgres',
-        'PASSWORD': 'fivepointcrew',
-        'HOST': 'localhost',         # Địa chỉ máy chủ cơ sở dữ liệu
-        'PORT': '5432',              # Cổng mặc định của PostgreSQL
+        'NAME': 'trekguide_db',      # Đã khớp với tên database bạn tạo
+        'USER': 'admin',             # SỬA Ở ĐÂY: Phải là 'admin' (không phải 'myuser')
+        'PASSWORD': 'fivepointcrew', # Mật khẩu khớp với lúc tạo user
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
 
