@@ -13,7 +13,7 @@ class Route(models.Model):
     path_coordinates = models.JSONField()
     tags = models.JSONField()  # Rất quan trọng cho việc matching [cite: 1332]
     ai_note = models.TextField()
-
+    gallery = models.JSONField(default=list, blank=True)
     def __str__(self):
         return self.name
 

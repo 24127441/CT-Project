@@ -65,7 +65,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-    # Third-party apps
+    # Các thư viện bên thứ 3 (nếu có)
     'rest_framework',
     'rest_framework_simplejwt',
     'djangorestframework_camel_case',

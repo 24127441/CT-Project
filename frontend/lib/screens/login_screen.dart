@@ -72,8 +72,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        // 1. WRAP IN SingleChildScrollView
-        child: SingleChildScrollView( 
+        child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
             child: Column(
@@ -108,8 +107,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       : CustomButton(text: 'Đăng nhập', onPressed: _handleLogin),
                 ),
                 
-                // 2. REMOVED Spacer() AND ADDED SizedBox INSTEAD
-                // Spacer() cannot be used inside SingleChildScrollView
                 const SizedBox(height: 40), 
                 
                 Row(

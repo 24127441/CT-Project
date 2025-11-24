@@ -6,11 +6,11 @@ import '../utils/app_styles.dart';
 import '../services/auth_service.dart'; // Import Service
 
 class OtpVerificationScreen extends StatefulWidget {
-  final String email; // Add email field
+  final String email; 
 
   const OtpVerificationScreen({
     Key? key, 
-    required this.email // Require it in constructor
+    required this.email
   }) : super(key: key);
 
   @override
@@ -19,6 +19,8 @@ class OtpVerificationScreen extends StatefulWidget {
 
 class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   final AuthService _authService = AuthService();
+  final TokenService _tokenService = TokenService(); // 2. Initialize TokenService
+  
   bool _isLoading = false;
   // Accept 4-digit OTP (preferred)
   static const int _otpLength = 4;
@@ -131,7 +133,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         centerTitle: true,
       ),
       body: SafeArea(
-        // WRAP IN SingleChildScrollView
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(24.0),

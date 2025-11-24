@@ -20,7 +20,8 @@ Future<void> main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => TripProvider('')),
+        // FIXED: Removed the empty string argument. TripProvider() takes no arguments.
+        ChangeNotifierProvider(create: (_) => TripProvider()),
       ],
       child: const MyApp(),
     ),

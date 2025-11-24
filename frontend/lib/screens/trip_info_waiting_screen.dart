@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-// Import đúng các file
-import '../../providers/trip_provider.dart';
+import '../providers/trip_provider.dart';
 import '../features/preference_matching/models/route_model.dart';
-// 👇 Thay vì import HomeView, ta import trang kết quả chuyên biệt
-import '../features/preference_matching/screen/preference_matching_page.dart';
+// RESOLVED: Import HomeView as the destination for results
+import '../features/home/screen/home_view.dart';
 
 class WaitingScreen extends StatefulWidget {
   const WaitingScreen({super.key});
@@ -23,40 +22,36 @@ class _WaitingScreenState extends State<WaitingScreen> {
 
   Future<void> _fetchData() async {
     try {
-      // 1. Gọi API (Thêm delay giả lập cho đẹp nếu muốn)
+      // 1. Simulate API Delay (Optional)
       await Future.delayed(const Duration(seconds: 2));
 
       if (!mounted) return;
+      // 2. Fetch Data from Backend via Provider
       final rawData = await context.read<TripProvider>().fetchSuggestedRoutes();
 
       if (!mounted) return;
 
-      // 2. Parse dữ liệu: JSON -> RouteModel
+      // 3. Parse Data: JSON -> List<RouteModel>
       final List<RouteModel> routes = rawData.map((item) {
         return RouteModel.fromJson(item);
       }).toList();
 
-      // 3. Chuyển hướng sang PreferenceMatchingPage
-      // Lưu ý: Ta truyền list 'routes' sang. Nếu nó rỗng [], trang kia sẽ tự hiện Empty State.
+      // 4. Navigate to HomeView (Results Screen) with data
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (context) => PreferenceMatchingPage(routes: routes),
+          builder: (context) => HomeView(suggestedRoutes: routes),
         ),
       );
 
     } catch (error) {
       if (!mounted) return;
-      // 4. Xử lý lỗi (Ví dụ mất mạng, server sập)
-      // Lúc này vẫn có thể chuyển sang PreferenceMatchingPage với list rỗng để hiện thông báo
-      // Hoặc hiện Dialog báo lỗi cụ thể. Ở đây mình chọn hiện trang Empty State cho đồng bộ.
+      // Error Handling: Navigate to HomeView with empty list (triggers Empty State)
+      // print("Error fetching data: $error");
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (context) => const PreferenceMatchingPage(routes: []),
+          builder: (context) => const HomeView(suggestedRoutes: []),
         ),
       );
-
-      // Hoặc nếu muốn debug thì uncomment dòng dưới để xem lỗi
-      // print("Lỗi fetch data: $error");
     }
   }
 
