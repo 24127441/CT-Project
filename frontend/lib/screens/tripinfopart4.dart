@@ -49,7 +49,6 @@ class _TripRequestScreenState extends State<TripRequestScreen> {
             Text('Bước 4/5', style: TextStyle(color: Colors.white70, fontSize: 14)),
           ],
         ),
-        title: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Thông tin chuyến đi', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)), Text('Bước 4/5', style: TextStyle(color: Colors.white70, fontSize: 14))]),
         backgroundColor: darkGreen, elevation: 0,
       ),
       body: SingleChildScrollView(

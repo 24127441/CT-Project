@@ -55,7 +55,20 @@ class TripProvider with ChangeNotifier {
     }
     notifyListeners();
   }
+  // --- HÀM RESET DỮ LIỆU (Dọn dẹp để tạo chuyến đi mới) ---
+  void resetTrip() {
+    _searchLocation = '';
+    _accommodation = null;
+    _paxGroup = null;
+    _startDate = null;
+    _endDate = null;
+    _difficultyLevel = null;
+    _note = '';
+    _selectedInterests = [];
+    _tripName = '';
 
+    notifyListeners(); // Báo cho UI cập nhật lại trạng thái mới
+  }
   // --- FEATURE: APPLY TEMPLATE (Fast Input) ---
   // This function fills all the state variables with data from the selected template
   void applyTemplate(TripTemplate template) {

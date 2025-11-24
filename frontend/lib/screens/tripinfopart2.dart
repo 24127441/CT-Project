@@ -4,10 +4,11 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/trip_provider.dart';
 import 'tripinfopart3.dart';
-import 'home_screen.dart'; // Import HomePage
+import 'home_screen.dart'; // ✅ Import đúng file Home của bạn
 
 class TripTimeScreen extends StatefulWidget {
   const TripTimeScreen({super.key});
+
   @override
   State<TripTimeScreen> createState() => _TripTimeScreenState();
 }
@@ -31,6 +32,7 @@ class _TripTimeScreenState extends State<TripTimeScreen> {
       cancelButtonTextStyle: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
       dayBorderRadius: BorderRadius.circular(8),
     );
+
     final List<DateTime?>? results = await showCalendarDatePicker2Dialog(
       context: context,
       config: config,
@@ -38,8 +40,8 @@ class _TripTimeScreenState extends State<TripTimeScreen> {
       borderRadius: BorderRadius.circular(15),
       value: (tripData.startDate != null && tripData.endDate != null) ? [tripData.startDate, tripData.endDate] : [],
     );
+
     if (results != null && results.length == 2 && results[0] != null && results[1] != null) {
-      // Sắp xếp lại ngày để đảm bảo start < end
       final start = results[0]!.isBefore(results[1]!) ? results[0]! : results[1]!;
       final end = results[0]!.isBefore(results[1]!) ? results[1]! : results[0]!;
       context.read<TripProvider>().setTripDates(start, end);
@@ -59,25 +61,22 @@ class _TripTimeScreenState extends State<TripTimeScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
+
+      // --- APP BAR ---
       appBar: AppBar(
         // Nút Hủy về Home
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.close, color: Colors.white),
           onPressed: () {
-            // FIXED: Top Left goes to Home
-            Navigator.pushAndRemoveUntil(
-              context,
+            context.read<TripProvider>().resetTrip();
+            Navigator.of(context).pushAndRemoveUntil(
+              // ✅ Dùng đúng HomePage
               MaterialPageRoute(builder: (context) => const HomePage()),
-              (route) => false,
+                  (Route<dynamic> route) => false,
             );
           },
         ),
-        title: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Thông tin chuyến đi', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)), Text('Bước 2/5', style: TextStyle(color: Colors.white70, fontSize: 14))]),
-        backgroundColor: primaryGreen, elevation: 0,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
+        title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Thông tin chuyến đi', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
@@ -87,6 +86,9 @@ class _TripTimeScreenState extends State<TripTimeScreen> {
         backgroundColor: primaryGreen,
         elevation: 0,
       ),
+
+      // --- BODY ---
+      // Đã xóa các dòng thừa gây lỗi (body bị lặp, backgroundColor đặt sai chỗ)
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -140,19 +142,23 @@ class _TripTimeScreenState extends State<TripTimeScreen> {
           ),
         ),
       ),
+
+      // --- BOTTOM BAR ---
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Row(
           children: [
-            // Nút Back dưới
+            // Nút Back dưới: Quay lại Bước 1
             Container(
               decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(8), color: Colors.white),
               child: IconButton(
                 icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-                onPressed: () => Navigator.pop(context), // Bottom Left Button (Step 2 -> Step 1)
+                onPressed: () => Navigator.pop(context),
               ),
             ),
             const SizedBox(width: 12),
+
+            // Nút Tiếp theo: Sang Bước 3
             Expanded(
               child: ElevatedButton(
                 onPressed: () {

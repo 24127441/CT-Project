@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/trip_provider.dart';
+// Import đúng các file
+import '../../providers/trip_provider.dart';
 import '../features/preference_matching/models/route_model.dart';
 import '../features/preference_matching/screen/preference_matching_page.dart';
 
@@ -21,36 +22,40 @@ class _WaitingScreenState extends State<WaitingScreen> {
 
   Future<void> _fetchData() async {
     try {
-      // 1. Simulate API Delay (Optional)
+      // 1. Gọi API (Thêm delay giả lập cho đẹp nếu muốn)
       await Future.delayed(const Duration(seconds: 2));
 
       if (!mounted) return;
-      // 2. Fetch Data from Backend via Provider
       final rawData = await context.read<TripProvider>().fetchSuggestedRoutes();
 
       if (!mounted) return;
 
-      // 3. Parse Data: JSON -> List<RouteModel>
+      // 2. Parse dữ liệu: JSON -> RouteModel
       final List<RouteModel> routes = rawData.map((item) {
         return RouteModel.fromJson(item);
       }).toList();
 
-      // 4. Navigate to HomeView (Results Screen) with data
+      // 3. Chuyển hướng sang PreferenceMatchingPage
+      // Lưu ý: Ta truyền list 'routes' sang. Nếu nó rỗng [], trang kia sẽ tự hiện Empty State.
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (context) => HomeView(suggestedRoutes: routes),
+          builder: (context) => PreferenceMatchingPage(routes: routes),
         ),
       );
 
     } catch (error) {
       if (!mounted) return;
-      // Error Handling: Navigate to HomeView with empty list (triggers Empty State)
-      // print("Error fetching data: $error");
+      // 4. Xử lý lỗi (Ví dụ mất mạng, server sập)
+      // Lúc này vẫn có thể chuyển sang PreferenceMatchingPage với list rỗng để hiện thông báo
+      // Hoặc hiện Dialog báo lỗi cụ thể. Ở đây mình chọn hiện trang Empty State cho đồng bộ.
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (context) => const HomeView(suggestedRoutes: []),
+          builder: (context) => const PreferenceMatchingPage(routes: []),
         ),
       );
+
+      // Hoặc nếu muốn debug thì uncomment dòng dưới để xem lỗi
+      // print("Lỗi fetch data: $error");
     }
   }
 
