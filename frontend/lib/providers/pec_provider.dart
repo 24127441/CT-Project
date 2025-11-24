@@ -152,13 +152,19 @@ class PecProvider with ChangeNotifier {
   void toggleItemChecked(int id) {
     final item = _items.firstWhere((item) => item['id'] == id);
     item['checked'] = !item['checked'];
+    if (item['checked']) {
+      if (item['quantity'] == 0) item['quantity'] = 1;
+    } else {
+      item['quantity'] = 0;
+    }
     notifyListeners();
   }
 
   void updateQuantity(int id, int quantity) {
     final item = _items.firstWhere((item) => item['id'] == id);
-    if (quantity > 0) {
+    if (quantity >= 0) {
       item['quantity'] = quantity;
+      item['checked'] = quantity > 0;
       notifyListeners();
     }
   }
