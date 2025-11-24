@@ -46,8 +46,19 @@ class PecItemWidget extends StatelessWidget {
             Container(
               width: 60,
               height: 60,
-              color: Colors.grey.shade300,
-              child: const Center(child: Text("PNG")), // Placeholder for image
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(8),
+                image: (item['images'] != null && (item['images'] as List).isNotEmpty)
+                    ? DecorationImage(
+                        image: NetworkImage(item['images'][0]),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
+              ),
+              child: (item['images'] == null || (item['images'] as List).isEmpty)
+                  ? const Center(child: Text("PNG", style: TextStyle(fontSize: 10)))
+                  : null,
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -56,7 +67,10 @@ class PecItemWidget extends StatelessWidget {
                 children: [
                   Text(item['name'], style: TextStyle(fontWeight: FontWeight.bold, color: darkText)),
                   Text(item['store'], style: TextStyle(color: lightText, fontSize: 12)),
-                  Text('${currencyFormatter.format(item['price'])} đ', style: TextStyle(color: priceColor, fontWeight: FontWeight.bold)),
+                  Text(
+                    '${currencyFormatter.format(item['price'] * (item['quantity'] > 0 ? item['quantity'] : 1))} đ', 
+                    style: TextStyle(color: priceColor, fontWeight: FontWeight.bold)
+                  ),
                 ],
               ),
             ),

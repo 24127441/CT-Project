@@ -3,10 +3,17 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/pec_provider.dart';
 
-class PecItemDetailModal extends StatelessWidget {
+class PecItemDetailModal extends StatefulWidget {
   final Map<String, dynamic> item;
 
   const PecItemDetailModal({super.key, required this.item});
+
+  @override
+  State<PecItemDetailModal> createState() => _PecItemDetailModalState();
+}
+
+class _PecItemDetailModalState extends State<PecItemDetailModal> {
+  int _currentImageIndex = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -16,6 +23,8 @@ class PecItemDetailModal extends StatelessWidget {
     final Color darkText = const Color(0xFF333333);
     final Color lightText = const Color(0xFF888888);
     final Color priceColor = const Color(0xFFF44336);
+
+    final List<String> images = (widget.item['images'] as List<String>?) ?? [];
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -43,20 +52,63 @@ class PecItemDetailModal extends StatelessWidget {
           ),
           const SizedBox(height: 24),
 
-          // Image
-          Center(
-            child: Container(
-              width: 150,
-              height: 150,
-              color: Colors.grey.shade100,
-              child: const Center(child: Text("PNG", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),
+          // Image Gallery
+          if (images.isNotEmpty) ...[
+            SizedBox(
+              height: 200,
+              child: PageView.builder(
+                itemCount: images.length,
+                onPageChanged: (index) {
+                  setState(() {
+                    _currentImageIndex = index;
+                  });
+                },
+                itemBuilder: (context, index) {
+                  return Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      image: DecorationImage(
+                        image: NetworkImage(images[index]),
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
+            const SizedBox(height: 12),
+            // Page Indicator
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(images.length, (index) {
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _currentImageIndex == index ? primaryGreen : Colors.grey.shade300,
+                  ),
+                );
+              }),
+            ),
+          ] else ...[
+            // Placeholder if no images
+            Center(
+              child: Container(
+                width: 150,
+                height: 150,
+                color: Colors.grey.shade100,
+                child: const Center(child: Text("PNG", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),
+              ),
+            ),
+          ],
           const SizedBox(height: 24),
 
           // Name & Store
           Text(
-            item['name'],
+            widget.item['name'],
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -65,7 +117,7 @@ class PecItemDetailModal extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            item['store'],
+            widget.item['store'],
             style: TextStyle(
               fontSize: 14,
               fontStyle: FontStyle.italic,
@@ -83,7 +135,7 @@ class PecItemDetailModal extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              item['description'] ?? 'Không có mô tả.',
+              widget.item['description'] ?? 'Không có mô tả.',
               style: TextStyle(color: darkText, height: 1.5),
             ),
           ),
@@ -93,24 +145,26 @@ class PecItemDetailModal extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '${currencyFormatter.format(item['price'])} đ',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: priceColor,
-                ),
+              Consumer<PecProvider>(
+                builder: (context, provider, child) {
+                  final updatedItem = provider.items.firstWhere((i) => i['id'] == widget.item['id'], orElse: () => widget.item);
+                  return Text(
+                    '${currencyFormatter.format(updatedItem['price'] * (updatedItem['quantity'] > 0 ? updatedItem['quantity'] : 1))} đ',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: priceColor,
+                    ),
+                  );
+                },
               ),
               Row(
                 children: [
                   _buildQuantityButton(
                     icon: Icons.remove,
                     onTap: () {
-                      if (item['quantity'] > 1) {
-                         pecProvider.updateQuantity(item['id'], item['quantity'] - 1);
-                         // Since the modal is stateless and item is passed once, 
-                         // we might need to listen to provider updates or just close/reopen.
-                         // Ideally, we should use a Consumer here to update the quantity text in real-time.
+                      if (widget.item['quantity'] > 1) {
+                         pecProvider.updateQuantity(widget.item['id'], widget.item['quantity'] - 1);
                       }
                     },
                   ),
@@ -118,7 +172,7 @@ class PecItemDetailModal extends StatelessWidget {
                   Consumer<PecProvider>(
                     builder: (context, provider, child) {
                       // Find the updated item to show current quantity
-                      final updatedItem = provider.items.firstWhere((i) => i['id'] == item['id'], orElse: () => item);
+                      final updatedItem = provider.items.firstWhere((i) => i['id'] == widget.item['id'], orElse: () => widget.item);
                       return Text(
                         '${updatedItem['quantity']}',
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: darkText),
@@ -129,7 +183,7 @@ class PecItemDetailModal extends StatelessWidget {
                   _buildQuantityButton(
                     icon: Icons.add,
                     onTap: () {
-                      pecProvider.updateQuantity(item['id'], item['quantity'] + 1);
+                      pecProvider.updateQuantity(widget.item['id'], widget.item['quantity'] + 1);
                     },
                   ),
                 ],
