@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'screens/welcome_view.dart';
 import 'package:provider/provider.dart';
 import 'providers/trip_provider.dart';
-
+import 'providers/pec_provider.dart';
 
 void main() {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => TripProvider('')),
+        ChangeNotifierProvider(create: (_) => TripProvider(''),),
+        ChangeNotifierProvider(create: (_) => PecProvider(),)
       ],
       child: const MyApp(),
     ),
