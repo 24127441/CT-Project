@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'screens/welcome_view.dart';
 import 'package:provider/provider.dart';
-import 'providers/trip_provider.dart';
+import 'providers/trip_provider.dart'; // Đảm bảo đường dẫn này trỏ tới file TripProvider ở trên
 
 void main() {
   runApp(
     MultiProvider(
       providers: [
-        // FIXED: Removed the empty string argument. TripProvider() takes no arguments now.
+        // SỬ DỤNG Constructor không tham số (phù hợp với file TripProvider đã sửa)
         ChangeNotifierProvider(create: (_) => TripProvider()),
       ],
       child: const MyApp(),

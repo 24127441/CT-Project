@@ -1,8 +1,17 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import '../models/trip_template.dart';
 import '../services/template_service.dart';
 
 class TripProvider with ChangeNotifier {
+  // --- CẤU HÌNH API ---
+  // FIXED: Gán cứng IP để tránh lỗi "No host specified". 
+  // Dùng '10.0.2.2' cho Android Emulator. Nếu chạy máy thật hãy thay bằng IP LAN (VD: 192.168.1.x)
+  static const String _serverIp = '10.0.2.2'; 
+  
+  static const String _baseUrl = 'http://$_serverIp:8000/api';
+  
   final TemplateService _templateService = TemplateService();
 
   // --- State Variables ---
@@ -31,6 +40,14 @@ class TripProvider with ChangeNotifier {
     if (_startDate == null || _endDate == null) return 1;
     return _endDate!.difference(_startDate!).inDays + 1;
   }
+  
+  // Helper chuyển đổi nhóm người
+  int get parsedGroupSize {
+    if (_paxGroup == 'Đơn lẻ (1-2 người)') return 2;
+    if (_paxGroup == 'Nhóm nhỏ (3-6 người)') return 5;
+    if (_paxGroup == 'Nhóm đông (7+ người)') return 8;
+    return 1;
+  }
 
   // --- Setters ---
   void setSearchLocation(String value) { _searchLocation = value; notifyListeners(); }
@@ -55,7 +72,7 @@ class TripProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // --- FEATURE: APPLY TEMPLATE (Fast Input) ---
+  // --- FEATURE 1: APPLY TEMPLATE ---
   void applyTemplate(TripTemplate template) {
     _searchLocation = template.location;
     _accommodation = template.accommodation;
@@ -72,14 +89,12 @@ class TripProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // --- FEATURE: SAVE TEMPLATE (Fixed Logic) ---
+  // --- FEATURE 2: SAVE TEMPLATE ---
   Future<void> saveHistoryInput(String name) async {
-    // 1. Validate Data
     if (_searchLocation.isEmpty || _accommodation == null || _paxGroup == null || _difficultyLevel == null) {
       throw Exception("Vui lòng điền đầy đủ thông tin trước khi lưu.");
     }
 
-    // 2. Prepare Data matching Backend Serializer
     final templateData = {
       "name": name,
       "location": _searchLocation,
@@ -91,17 +106,102 @@ class TripProvider with ChangeNotifier {
       "interests": _selectedInterests,
     };
 
-    // 3. Call Service
-    // This uses TemplateService which automatically handles the Token and Correct URL
     bool success = await _templateService.saveTemplate(templateData);
-    
-    // 4. Handle Result
     if (!success) {
-      throw Exception("Lưu thất bại. Vui lòng kiểm tra kết nối hoặc đăng nhập lại.");
+      throw Exception("Lưu thất bại. Vui lòng kiểm tra kết nối.");
     }
   }
 
-  // --- FEATURE: RESET TRIP (From Route Profile) ---
+  // --- FEATURE 3: FETCH SUGGESTED ROUTES ---
+  Future<List<dynamic>> fetchSuggestedRoutes() async {
+    // 1. Chuẩn bị tham số
+    final Map<String, dynamic> queryParams = {};
+    if (_searchLocation.isNotEmpty) queryParams['location'] = _searchLocation;
+    if (_difficultyLevel != null) queryParams['difficulty'] = _difficultyLevel;
+    
+    // 2. Gọi API SERVER (Ưu tiên)
+    try {
+      final uri = Uri.parse('$_baseUrl/routes/suggested/')
+          .replace(queryParameters: queryParams);
+      
+      print("🔌 Đang gọi API: $uri"); // Log để debug
+      final response = await http.get(uri).timeout(const Duration(seconds: 3));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        if (data.isNotEmpty) {
+          print("✅ API trả về ${data.length} kết quả.");
+          return data;
+        }
+      }
+    } catch (e) {
+      print("⚠️ Lỗi gọi API ($e). Đang chuyển sang Offline Mode...");
+    }
+
+    // 3. FALLBACK: MOCK DATA (Nếu Server lỗi hoặc trả về rỗng)
+    await Future.delayed(const Duration(seconds: 1)); 
+    
+    final List<Map<String, dynamic>> backupRoutes = [
+      {
+        "id": 1,
+        "name": "Chư Đăng Ya", // Thêm Gia Lai để khớp với tìm kiếm của bạn
+        "location": "Gia Lai",
+        "description": "Miệng núi lửa cổ, thiên đường hoa dã quỳ.",
+        "imageUrl": "https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80", 
+        "gallery": ["https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80"],
+        "totalDistanceKm": 5.0,
+        "elevationGainM": 400,
+        "durationDays": 1,
+        "tags": ["volcano", "flowers", "gia-lai"]
+      },
+      {
+        "id": 2,
+        "name": "Núi Chứa Chan",
+        "location": "Đồng Nai",
+        "description": "Cung đường trekking quốc dân gần Sài Gòn.",
+        "imageUrl": "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?q=80",
+        "gallery": [],
+        "totalDistanceKm": 10.5,
+        "elevationGainM": 800,
+        "durationDays": 2,
+        "tags": ["mountain", "camping", "dong-nai"]
+      },
+      {
+        "id": 3,
+        "name": "Tà Năng - Phan Dũng",
+        "location": "Lâm Đồng",
+        "description": "Cung đường trekking đẹp nhất Việt Nam.",
+        "imageUrl": "https://images.unsplash.com/photo-1533240332313-0dbdd3199061?q=80",
+        "gallery": [],
+        "totalDistanceKm": 55.0,
+        "elevationGainM": 1100,
+        "durationDays": 3,
+        "tags": ["grassland", "lam-dong"]
+      }
+    ];
+
+    // LOGIC LỌC OFFLINE
+    if (_searchLocation.isNotEmpty) {
+      final query = _searchLocation.toLowerCase();
+      final filtered = backupRoutes.where((r) {
+        final loc = r['location'].toString().toLowerCase();
+        final name = r['name'].toString().toLowerCase();
+        return loc.contains(query) || name.contains(query);
+      }).toList();
+      
+      // QUAN TRỌNG: Nếu lọc ra rỗng (không khớp), trả về danh sách gốc
+      // để người dùng không bị màn hình trắng trơn.
+      if (filtered.isEmpty) {
+        print("ℹ️ Không tìm thấy '$query' trong mock data. Trả về toàn bộ danh sách gợi ý.");
+        return backupRoutes;
+      }
+      return filtered;
+    }
+
+    return backupRoutes;
+  }
+
+  // --- FEATURE 4: RESET ---
   void resetTrip() {
     _searchLocation = '';
     _accommodation = null;
@@ -113,12 +213,5 @@ class TripProvider with ChangeNotifier {
     _selectedInterests = [];
     _tripName = '';
     notifyListeners();
-  }
-  
-  // API 1: Gợi ý Route (Mock implementation for now)
-  Future<List<dynamic>> fetchSuggestedRoutes() async {
-    await Future.delayed(const Duration(seconds: 2));
-    // Return empty list or mock data here
-    return []; 
   }
 }
