@@ -113,42 +113,45 @@ class TripProvider with ChangeNotifier {
     }
   }
 
-  // --- FEATURE 3: FETCH SUGGESTED ROUTES ---
+  // --- FEATURE 3: FETCH SUGGESTED ROUTES (LOGIC ĐÃ SỬA) ---
   Future<List<dynamic>> fetchSuggestedRoutes() async {
     // 1. Chuẩn bị tham số
     final Map<String, dynamic> queryParams = {};
     if (_searchLocation.isNotEmpty) queryParams['location'] = _searchLocation;
     if (_difficultyLevel != null) queryParams['difficulty'] = _difficultyLevel;
-    
+
     // 2. Gọi API SERVER (Ưu tiên)
     try {
       final uri = Uri.parse('$_baseUrl/routes/suggested/')
           .replace(queryParameters: queryParams);
-      
-      print("🔌 Đang gọi API: $uri"); // Log để debug
+
+      print("🔌 Đang gọi API: $uri");
       final response = await http.get(uri).timeout(const Duration(seconds: 3));
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        if (data.isNotEmpty) {
-          print("✅ API trả về ${data.length} kết quả.");
-          return data;
-        }
+        print("✅ API trả về ${data.length} kết quả.");
+        return data;
+      } else {
+        // Nếu Server lỗi (500, 404...), in lỗi và để code chạy tiếp xuống phần Mock Data
+        print("⚠️ Server trả về lỗi: ${response.statusCode}");
       }
     } catch (e) {
-      print("⚠️ Lỗi gọi API ($e). Đang chuyển sang Offline Mode...");
+      // Nếu mất mạng hoặc timeout, in lỗi và để code chạy tiếp xuống phần Mock Data
+      print("⚠️ Lỗi kết nối API ($e). Đang chuyển sang Offline Mode...");
     }
 
-    // 3. FALLBACK: MOCK DATA (Nếu Server lỗi hoặc trả về rỗng)
-    await Future.delayed(const Duration(seconds: 1)); 
-    
+    // 3. FALLBACK: MOCK DATA (Chỉ chạy khi có Exception hoặc Server lỗi != 200)
+    print("ℹ️ Đang sử dụng dữ liệu giả lập (Offline Mode)");
+    await Future.delayed(const Duration(milliseconds: 500));
+
     final List<Map<String, dynamic>> backupRoutes = [
       {
         "id": 1,
-        "name": "Chư Đăng Ya", // Thêm Gia Lai để khớp với tìm kiếm của bạn
+        "name": "Chư Đăng Ya",
         "location": "Gia Lai",
         "description": "Miệng núi lửa cổ, thiên đường hoa dã quỳ.",
-        "imageUrl": "https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80", 
+        "imageUrl": "https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80",
         "gallery": ["https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80"],
         "totalDistanceKm": 5.0,
         "elevationGainM": 400,
@@ -183,23 +186,31 @@ class TripProvider with ChangeNotifier {
 
     // LOGIC LỌC OFFLINE
     if (_searchLocation.isNotEmpty) {
-      final query = _searchLocation.toLowerCase();
+      final query = _removeDiacritics(_searchLocation).toLowerCase();
+
       final filtered = backupRoutes.where((r) {
-        final loc = r['location'].toString().toLowerCase();
-        final name = r['name'].toString().toLowerCase();
+        final loc = _removeDiacritics(r['location'].toString()).toLowerCase();
+        final name = _removeDiacritics(r['name'].toString()).toLowerCase();
         return loc.contains(query) || name.contains(query);
       }).toList();
-      
-      // QUAN TRỌNG: Nếu lọc ra rỗng (không khớp), trả về danh sách gốc
-      // để người dùng không bị màn hình trắng trơn.
-      if (filtered.isEmpty) {
-        print("ℹ️ Không tìm thấy '$query' trong mock data. Trả về toàn bộ danh sách gợi ý.");
-        return backupRoutes;
-      }
+
+      // FIX 2: Nếu lọc Offline ra rỗng, trả về rỗng luôn.
+      // Điều này giúp UI hiển thị thông báo "Không tìm thấy chuyến đi nào ở [Địa điểm]"
+      // Thay vì tự động hiện lại toàn bộ danh sách gây khó hiểu.
       return filtered;
     }
 
     return backupRoutes;
+  }
+
+  String _removeDiacritics(String str) {
+    const withDia = 'áàảãạăắằẳẵặâấầẩẫậđéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵ';
+    const withoutDia = 'aaaaaaaaaaaaaaaaadeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyy';
+    var result = str;
+    for (int i = 0; i < withDia.length; i++) {
+      result = result.replaceAll(withDia[i], withoutDia[i]);
+    }
+    return result;
   }
 
   // --- FEATURE 4: RESET ---
