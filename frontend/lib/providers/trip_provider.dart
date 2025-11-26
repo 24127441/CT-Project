@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../services/api_service.dart';
 import '../models/trip_template.dart';
 import '../services/template_service.dart';
 
@@ -12,7 +13,10 @@ class TripProvider with ChangeNotifier {
   
   static const String _baseUrl = 'http://$_serverIp:8000/api';
   
+  final ApiService _api = ApiService();
   final TemplateService _templateService = TemplateService();
+
+  TripProvider([String? unused]);
 
   // --- State Variables ---
   String _searchLocation = '';

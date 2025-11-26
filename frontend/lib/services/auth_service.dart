@@ -1,80 +1,98 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:dio/dio.dart';
+import '../core/supabase_config.dart';
 
 class AuthService {
-  // NOTE: For Android Emulator, use 10.0.2.2. 
-  // If testing on a real phone, use your computer's LAN IP (e.g., 192.168.1.x)
-  static const String baseUrl = 'http://10.0.2.2:8000/api/auth';
+  final _client = Supabase.instance.client;
 
-  // Login Function
+  // ------------------
+  // Public API
+  // ------------------
+
+  Future<AuthResponse> register(String email, String password) async {
+    return await _client.auth.signUp(email: email, password: password);
+  }
+
   Future<bool> login(String email, String password) async {
-    final url = Uri.parse('$baseUrl/login/');
     try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'password': password}),
-      );
-
-      if (response.statusCode == 200) {
-        return true; // OTP sent successfully
-      } else {
-        print('Login Failed: ${response.body}');
-        return false;
-      }
-    } catch (e) {
-      print('Connection Error: $e');
+      await _client.auth.signInWithPassword(email: email, password: password);
+      return _client.auth.currentSession != null;
+    } catch (_) {
       return false;
     }
   }
 
-  // Registration Function
-  Future<bool> register(String email, String fullName, String password) async {
-    final url = Uri.parse('$baseUrl/register/');
+  Future<void> signOut() async => await _client.auth.signOut();
+
+  Session? get currentSession => _client.auth.currentSession;
+
+  /// Gửi OTP
+  Future<void> sendEmailOtp(String email) async {
+    await _client.auth.signInWithOtp(email: email);
+  }
+
+  /// Xác thực OTP (Logic đã được sửa lại chuẩn cho SDK v2)
+  Future<void> verifyEmailOtp(String email, String token) async {
     try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': email,
-          'full_name': fullName,
-          'password': password,
-          'password_confirm': password, // Required by your Django Serializer
-        }),
+      // CÁCH 1: Dùng hàm chuẩn của SDK v2
+      // Hàm này tự động lưu session nếu thành công
+      final response = await _client.auth.verifyOTP(
+        token: token,
+        type: OtpType.email,
+        email: email,
       );
 
-      if (response.statusCode == 201) {
-        return true; // Registered & OTP sent
-      } else {
-        print('Register Failed: ${response.body}');
-        return false;
+      // Kiểm tra xem session đã thực sự có chưa
+      if (response.session == null && _client.auth.currentSession == null) {
+        throw Exception("SDK Verify OK but Session is NULL");
       }
     } catch (e) {
-      print('Connection Error: $e');
-      return false;
+      // Nếu Cách 1 lỗi (hoặc SDK không lưu được session), dùng CÁCH 2:
+      // Gọi REST API thủ công và ép lưu Session
+      print("SDK Verify failed or no session, falling back to REST: $e");
+      await _verifyEmailOtpRest(email, token);
     }
   }
 
-  // Verify OTP Function
-  Future<Map<String, dynamic>?> verifyOtp(String email, String otp) async {
-    final url = Uri.parse('$baseUrl/verify-otp/');
-    try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'otp': otp}),
-      );
+  // ------------------
+  // Private Helpers
+  // ------------------
 
-      if (response.statusCode == 200) {
-        // Returns the Access & Refresh tokens
-        return jsonDecode(response.body); 
-      } else {
-        print('Verification Failed: ${response.body}');
-        return null;
+  Future<void> _verifyEmailOtpRest(String email, String token) async {
+    final dio = Dio();
+    final endpoint = '$supabaseUrl/auth/v1/verify';
+    final headers = {
+      'apikey': supabaseAnonKey,
+      'Content-Type': 'application/json',
+    };
+    final body = {'email': email, 'token': token, 'type': 'email'};
+
+    try {
+      final resp = await dio.post(endpoint, data: body, options: Options(headers: headers));
+
+      if (resp.statusCode != null && (resp.statusCode! >= 200 && resp.statusCode! < 300)) {
+        // Lấy dữ liệu trả về
+        final data = resp.data;
+        // Quan trọng: Lấy refresh_token để khôi phục session
+        if (data is Map<String, dynamic>) {
+          final refreshToken = data['refresh_token'];
+          final accessToken = data['access_token'];
+
+          if (refreshToken != null) {
+            // Ép SDK lưu session mới từ refresh token
+            await _client.auth.setSession(refreshToken);
+            return;
+          } else if (accessToken != null) {
+            // Trường hợp hy hữu chỉ có access token (ít gặp ở verify)
+            // Ta không làm gì được nhiều vì setSession cần refresh token ở bản mới
+            throw Exception("No refresh token received from REST verify");
+          }
+        }
+        return; // Thành công
       }
     } catch (e) {
-      print('Connection Error: $e');
-      return null;
+      throw Exception('REST verify failed: $e');
     }
+    throw Exception('REST verify failed with unknown error');
   }
 }

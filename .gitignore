@@ -39,7 +39,6 @@ yarn-error.log*
 # ==========================
 # DATABASE / LOCAL FILES
 # ==========================
-
 *.db
 *.sqlite3
 *.sqlite3-journal
@@ -54,7 +53,6 @@ db.sqlite3
 
 # Virtual Environments
 venv/
-env/
 .venv/
 backend/venv/
 backend/.venv/
@@ -105,6 +103,7 @@ lib/generated_plugin_registrant.dart
 # ==========================
 # SECURITY / ENV 
 # ==========================
+# Chặn tất cả file .env
 .env
 .env.*
 backend/.env
@@ -113,3 +112,7 @@ frontend/.env
 *.pem
 *.key
 *.p12
+
+# --- NGOẠI LỆ: Cho phép file ví dụ ---
+!.env.example
+!backend/.env.example
