@@ -5,84 +5,67 @@ import 'screens/welcome_view.dart';
 import 'screens/home_screen.dart';
 import 'providers/trip_provider.dart';
 import 'core/supabase_config.dart';
+import 'services/session_lifecycle_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Khởi tạo Supabase
   await Supabase.initialize(
     url: supabaseUrl,
     anonKey: supabaseAnonKey,
   );
+
+  // Lấy kết quả xem có phải Cold Start không?
+  // isColdStart = true nghĩa là vừa tắt app bật lại -> Phải về Welcome
+  final bool isColdStart = await SessionLifecycleService.checkIsColdStart();
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => TripProvider()),
       ],
-      child: const MyApp(),
+      // Truyền cờ isColdStart vào MyApp
+      child: MyApp(isColdStart: isColdStart),
     ),
   );
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  // Nhận biến từ main
+  final bool isColdStart;
+
+  const MyApp({super.key, required this.isColdStart});
 
   @override
   Widget build(BuildContext context) {
+    // 1. Lấy session hiện tại (có thể vẫn còn cache trong RAM dù đã signOut)
+    final session = Supabase.instance.client.auth.currentSession;
+
+    print("--- [MyApp Check] ColdStart: $isColdStart | Session: ${session != null ? 'Có' : 'Không'} ---");
+
+    // 2. LOGIC QUYẾT ĐỊNH MÀN HÌNH KHỞI ĐỘNG (QUAN TRỌNG)
+    Widget startScreen;
+
+    if (isColdStart) {
+      // Nếu là Cold Start -> BẮT BUỘC về Welcome (kệ session nói gì)
+      startScreen = const WelcomeView();
+    } else if (session != null) {
+      // Nếu không phải Cold Start (Hot restart) VÀ có session -> Vào Home
+      startScreen = const HomePage();
+    } else {
+      // Còn lại -> Welcome
+      startScreen = const WelcomeView();
+    }
+
     return MaterialApp(
       title: 'Trek Guide',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF425E3C),
-          primary: const Color(0xFF425E3C),
-        ),
-        scaffoldBackgroundColor: const Color(0xFFF8F6F2),
-        fontFamily: 'Roboto',
-        useMaterial3: true,
-      ),
-      // Thay vì gán cứng AuthGate(child: WelcomeView), ta để AuthGate tự quyết định
-      home: const AuthGate(),
       routes: {
-        '/welcome': (_) => const WelcomeView(),
-        '/home': (_) => const HomePage(),
+        '/home': (context) => const HomePage(),
+        '/welcome': (context) => const WelcomeView(),
       },
-    );
-  }
-}
-
-/// AUTHGATE: Cổng kiểm soát đăng nhập
-/// - Nếu có Session -> Vào thẳng HomePage
-/// - Nếu chưa -> Vào WelcomeView
-class AuthGate extends StatelessWidget {
-  const AuthGate({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<AuthState>(
-      // Lắng nghe luồng sự kiện Auth của Supabase
-      stream: Supabase.instance.client.auth.onAuthStateChange,
-      builder: (context, snapshot) {
-        // 1. Trạng thái chờ: Đang tải dữ liệu (tránh màn hình trắng)
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        // 2. Lấy session hiện tại
-        // Stream trả về AuthState, trong đó có chứa session
-        final session = snapshot.data?.session;
-
-        if (session != null) {
-          // Đã đăng nhập -> Vào Home
-          return const HomePage();
-        } else {
-          // Chưa đăng nhập (hoặc hết hạn) -> Vào Welcome/Login
-          return const WelcomeView();
-        }
-      },
+      // Sử dụng màn hình đã quyết định ở trên
+      home: startScreen,
     );
   }
 }

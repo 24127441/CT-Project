@@ -5,6 +5,7 @@ import '../utils/app_colors.dart';
 import '../utils/app_styles.dart';
 import '../services/auth_service.dart'; // Import Service
 import '../services/token_service.dart'; // 1. Import TokenService
+import 'package:supabase_flutter/supabase_flutter.dart'; // Thêm dòng này
 
 class OtpVerificationScreen extends StatefulWidget {
   final String email; 
@@ -93,29 +94,65 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   }
 
   Future<void> _verifyCode() async {
-    // Prefer the full OTP field if the user pasted/typed the entire code
+    // 1. LẤY MÃ CODE TỪ GIAO DIỆN (Phần này đang bị thiếu gây ra lỗi 'code')
     final full = _fullOtpController.text.trim();
     String code;
+    // Ưu tiên lấy từ ô nhập full nếu có, ngược lại lấy từ 4 ô nhỏ
     if (full.isNotEmpty && full.length >= 4 && full.length <= 8) {
       code = full;
     } else {
       code = _controllers.map((c) => c.text.trim()).join();
     }
+
+    // Kiểm tra độ dài
     if (code.length < 4) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter the code')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng nhập đủ mã xác thực')),
+      );
       return;
     }
+
     setState(() => _isLoading = true);
+
     try {
+      // 2. GỌI API XÁC THỰC
       await _authService.verifyEmailOtp(widget.email, code);
+
+      // 3. KIỂM TRA LẠI SESSION (Logic giữ đăng nhập)
+      // Đợi một chút để Session kịp cập nhật vào bộ nhớ máy
+      if (Supabase.instance.client.auth.currentSession == null) {
+        // Thử refresh lại session nếu thấy null
+        try {
+          await Supabase.instance.client.auth.refreshSession();
+        } catch (_) {}
+      }
+
+      // Kiểm tra lần cuối cùng
+      if (Supabase.instance.client.auth.currentSession == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Xác thực đúng nhưng chưa lưu được phiên. Vui lòng thử lại.'),
+              backgroundColor: Colors.orange,
+            )
+        );
+        return;
+      }
+
+      // 4. THÀNH CÔNG -> VÀO HOME
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Verified — signing in')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đăng nhập thành công!'))
+      );
       Navigator.of(context).pushReplacementNamed('/home');
+
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to verify OTP: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi xác thực: $e'), backgroundColor: Colors.red),
+      );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
