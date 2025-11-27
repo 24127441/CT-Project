@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+// debugPrint is provided by material.dart; no separate foundation import needed
 import 'package:provider/provider.dart';
 import '../providers/trip_provider.dart';
 import '../screens/home_screen.dart';
@@ -148,7 +149,7 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('✅ Đã lưu mẫu thành công!'), backgroundColor: Colors.green),
                       );
-                      print("Lưu mẫu thành công!");
+                      debugPrint("Lưu mẫu thành công!");
                     }
                   } catch (e) {
                     if (context.mounted) {

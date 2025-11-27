@@ -5,30 +5,23 @@ from django.contrib.auth import get_user_model, authenticate
 from .serializers import UserRegisterSerializer, TripTemplateSerializer
 from .models import TripTemplate
 from rest_framework_simplejwt.tokens import RefreshToken
-import random
-from django.utils import timezone
-from django.core.mail import send_mail
-from django.conf import settings
+import logging
 
 User = get_user_model()
 
-def generate_and_send_otp(user):
-    otp = str(random.randint(1000, 9999))
-    user.otp = otp
-    user.otp_created_at = timezone.now()
-    user.save()
+# Logger for this module
+logger = logging.getLogger(__name__)
 
-    subject = 'Your Trek Guide Verification Code'
-    message = f'Hello {user.full_name},\n\nYour verification code is: {otp}\n\nUse this to verify your account.'
-    email_from = getattr(settings, 'EMAIL_HOST_USER', 'noreply@trekguide.com')
-    recipient_list = [user.email]
+def generate_and_send_otp(user):
+    """
+    Supabase handles OTP delivery/verification.
     
-    try:
-        send_mail(subject, message, email_from, recipient_list)
-        print(f"Email sent successfully to {user.email}")
-    except Exception as e:
-        print(f"Failed to send email: {e}")
-        print(f"--- DEBUG OTP: {otp} ---")
+    """
+    logger.debug("Supabase is responsible for OTP delivery for user=%s", user.email)
+    # Clear any backend OTP fields to avoid stale values.
+    user.otp = None
+    user.otp_created_at = None
+    user.save()
 
 
 class RegisterView(generics.CreateAPIView):
@@ -39,7 +32,7 @@ class RegisterView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        user.is_active = False 
+        user.is_active = False
         user.save()
         generate_and_send_otp(user)
         return Response({
@@ -57,9 +50,10 @@ class LoginView(APIView):
         user = authenticate(username=email, password=password)
 
         if user is not None:
+            # Supabase handles OTP delivery for sign-in; backend no longer sends OTPs.
             generate_and_send_otp(user)
             return Response({
-                "message": "OTP sent to email",
+                "message": "Use Supabase OTP sign-in; backend will not send OTPs.",
                 "email": email
             }, status=status.HTTP_200_OK)
         

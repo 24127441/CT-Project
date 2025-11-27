@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import '../services/api_service.dart';
+// debugPrint is available from material.dart
 import '../models/trip_template.dart';
-import '../services/template_service.dart';
+import '../services/supabase_db_service.dart';
 
 class TripProvider with ChangeNotifier {
   // --- CẤU HÌNH API ---
@@ -13,8 +13,8 @@ class TripProvider with ChangeNotifier {
   
   static const String _baseUrl = 'http://$_serverIp:8000/api';
   
-  final ApiService _api = ApiService();
-  final TemplateService _templateService = TemplateService();
+  
+  final SupabaseDbService _supabaseDb = SupabaseDbService();
 
   TripProvider([String? unused]);
 
@@ -94,26 +94,69 @@ class TripProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /// Apply a saved history input (from Supabase) to the provider state.
+  void applyHistoryInput(Map<String, dynamic> data) {
+    _searchLocation = data['location'] ?? data['payload']?['location'] ?? '';
+    _accommodation = data['rest_type'] ?? data['payload']?['rest_type'];
+
+    final gs = data['group_size'] ?? data['payload']?['group_size'];
+    if (gs is int) {
+      if (gs >= 7) {
+        _paxGroup = 'Nhóm đông (7+ người)';
+      } else if (gs >= 3) {
+        _paxGroup = 'Nhóm nhỏ (3-6 người)';
+      } else {
+        _paxGroup = 'Đơn lẻ (1-2 người)';
+      }
+    } else if (gs is String) {
+      _paxGroup = gs;
+    }
+
+    final sd = data['start_date'] ?? data['payload']?['start_date'];
+    final dd = data['duration_days'] ?? data['payload']?['duration_days'];
+    if (sd != null) {
+      try {
+        final parsed = DateTime.parse(sd.toString());
+        _startDate = DateTime(parsed.year, parsed.month, parsed.day);
+        final d = (dd is int) ? dd : int.tryParse(dd?.toString() ?? '') ?? 1;
+        _endDate = _startDate!.add(Duration(days: d - 1));
+      } catch (_) {
+        _startDate = null;
+        _endDate = null;
+      }
+    }
+
+    _difficultyLevel = data['difficulty'] ?? data['payload']?['difficulty'];
+    final interests = data['personal_interests'] ?? data['payload']?['personal_interests'] ?? data['personal_interest'] ?? data['payload']?['personal_interest'];
+    if (interests is List) {
+      _selectedInterests = List<String>.from(interests.map((e) => e.toString()));
+    }
+    _tripName = data['template_name'] ?? data['name'] ?? _tripName;
+
+    notifyListeners();
+  }
+
   // --- FEATURE 2: SAVE TEMPLATE ---
   Future<void> saveHistoryInput(String name) async {
     if (_searchLocation.isEmpty || _accommodation == null || _paxGroup == null || _difficultyLevel == null) {
       throw Exception("Vui lòng điền đầy đủ thông tin trước khi lưu.");
     }
-
-    final templateData = {
-      "name": name,
-      "location": _searchLocation,
-      "accommodation": _accommodation,
-      "pax_group": _paxGroup,
-      "difficulty": _difficultyLevel,
-      "duration_days": durationDays,
-      "note": _note,
-      "interests": _selectedInterests,
+    // Build a payload compatible with our history_inputs storage.
+    final payload = {
+      'location': _searchLocation,
+      'rest_type': _accommodation,
+      'group_size': parsedGroupSize,
+      'start_date': _startDate != null ? DateTime(_startDate!.year, _startDate!.month, _startDate!.day).toIso8601String().split('T').first : null,
+      'duration_days': durationDays,
+      'difficulty': _difficultyLevel,
+      'personal_interests': _selectedInterests,
     };
 
-    bool success = await _templateService.saveTemplate(templateData);
-    if (!success) {
-      throw Exception("Lưu thất bại. Vui lòng kiểm tra kết nối.");
+    try {
+      await _supabaseDb.saveHistoryInput(name, payload);
+    } catch (e) {
+      // If Supabase save fails, bubble up for UI to show error
+      rethrow;
     }
   }
 
@@ -129,24 +172,24 @@ class TripProvider with ChangeNotifier {
       final uri = Uri.parse('$_baseUrl/routes/suggested/')
           .replace(queryParameters: queryParams);
 
-      print("🔌 Đang gọi API: $uri");
+      debugPrint("🔌 Đang gọi API: $uri");
       final response = await http.get(uri).timeout(const Duration(seconds: 3));
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        print("✅ API trả về ${data.length} kết quả.");
+        debugPrint("✅ API trả về ${data.length} kết quả.");
         return data;
       } else {
         // Nếu Server lỗi (500, 404...), in lỗi và để code chạy tiếp xuống phần Mock Data
-        print("⚠️ Server trả về lỗi: ${response.statusCode}");
+        debugPrint("⚠️ Server trả về lỗi: ${response.statusCode}");
       }
     } catch (e) {
       // Nếu mất mạng hoặc timeout, in lỗi và để code chạy tiếp xuống phần Mock Data
-      print("⚠️ Lỗi kết nối API ($e). Đang chuyển sang Offline Mode...");
+      debugPrint("⚠️ Lỗi kết nối API ($e). Đang chuyển sang Offline Mode...");
     }
 
     // 3. FALLBACK: MOCK DATA (Chỉ chạy khi có Exception hoặc Server lỗi != 200)
-    print("ℹ️ Đang sử dụng dữ liệu giả lập (Offline Mode)");
+    debugPrint("ℹ️ Đang sử dụng dữ liệu giả lập (Offline Mode)");
     await Future.delayed(const Duration(milliseconds: 500));
 
     final List<Map<String, dynamic>> backupRoutes = [

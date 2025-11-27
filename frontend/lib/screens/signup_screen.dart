@@ -8,7 +8,7 @@ import 'otp_verification_screen.dart';
 import 'login_screen.dart';
 
 class SignupScreen extends StatefulWidget {
-  const SignupScreen({Key? key}) : super(key: key);
+  const SignupScreen({super.key});
 
   @override
   State<SignupScreen> createState() => _SignupScreenState();
@@ -44,7 +44,7 @@ class _SignupScreenState extends State<SignupScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => OtpVerificationScreen(email: email),
+          builder: (context) => OtpVerificationScreen(email: email, autoSend: false),
         ),
       );
     } catch (e) {

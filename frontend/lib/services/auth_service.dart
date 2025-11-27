@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:dio/dio.dart';
 import '../core/supabase_config.dart';
 
@@ -49,7 +50,7 @@ class AuthService {
     } catch (e) {
       // Nếu Cách 1 lỗi (hoặc SDK không lưu được session), dùng CÁCH 2:
       // Gọi REST API thủ công và ép lưu Session
-      print("SDK Verify failed or no session, falling back to REST: $e");
+      debugPrint("SDK Verify failed or no session, falling back to REST: $e");
       await _verifyEmailOtpRest(email, token);
     }
   }

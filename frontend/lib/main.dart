@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+// debugPrint is provided by Flutter material import; no separate foundation import needed
 import 'screens/welcome_view.dart';
 import 'screens/home_screen.dart';
 import 'providers/trip_provider.dart';
@@ -41,7 +42,7 @@ class MyApp extends StatelessWidget {
     // 1. Lấy session hiện tại (có thể vẫn còn cache trong RAM dù đã signOut)
     final session = Supabase.instance.client.auth.currentSession;
 
-    print("--- [MyApp Check] ColdStart: $isColdStart | Session: ${session != null ? 'Có' : 'Không'} ---");
+    debugPrint("--- [MyApp Check] ColdStart: $isColdStart | Session: ${session != null ? 'Có' : 'Không'} ---");
 
     // 2. LOGIC QUYẾT ĐỊNH MÀN HÌNH KHỞI ĐỘNG (QUAN TRỌNG)
     Widget startScreen;
