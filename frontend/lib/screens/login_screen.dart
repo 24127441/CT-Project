@@ -51,13 +51,9 @@ class _LoginScreenState extends State<LoginScreen> {
         // Mục đích: Chỉ dùng mật khẩu để xác minh sơ bộ, buộc phải có OTP mới lấy được session cuối cùng.
         await _authService.signOut();
 
-        // BƯỚC 3: Gửi OTP xác thực
-        await _authService.sendEmailOtp(email);
-
+        // BƯỚC 3: Chuyển sang màn hình nhập OTP
+        // Màn hình OTP sẽ tự động gửi mã khi xuất hiện.
         if (!mounted) return;
-
-        // BƯỚC 4: Chuyển sang màn hình nhập OTP
-        // (Màn hình OTP sẽ lo việc xác thực và chuyển vào Home)
         Navigator.push(
           context,
           MaterialPageRoute(

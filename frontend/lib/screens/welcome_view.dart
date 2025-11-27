@@ -37,7 +37,7 @@ class WelcomeView extends StatelessWidget {
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
+                        color: Colors.black.withValues(alpha: 0.2),
                         blurRadius: 15,
                         offset: const Offset(0, 8),
                       ),
@@ -103,7 +103,7 @@ class WelcomeView extends StatelessWidget {
                       backgroundColor: const Color(0xFF56AB2F),
                       foregroundColor: Colors.white,
                       elevation: 4,
-                      shadowColor: Colors.greenAccent.withOpacity(0.4),
+                      shadowColor: Colors.greenAccent.withValues(alpha: 0.4),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -129,7 +129,7 @@ class WelcomeView extends StatelessWidget {
                       Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
                     },
                     style: OutlinedButton.styleFrom(
-                      backgroundColor: Colors.white.withOpacity(0.25),
+                      backgroundColor: Colors.white.withValues(alpha: 0.25),
                       foregroundColor: Colors.white,
                       side: const BorderSide(color: Colors.white, width: 1.5),
                       shape: RoundedRectangleBorder(

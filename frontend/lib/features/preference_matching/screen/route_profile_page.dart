@@ -2,9 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:frontend/features/preference_matching/models/route_model.dart';
 import 'package:frontend/features/preference_matching/screen/interactive_map_page.dart';
-import 'package:frontend/utils/app_colors.dart';
-import 'package:frontend/utils/app_styles.dart';
-import 'package:frontend/widgets/custom_button.dart';
+// removed unused imports: app_colors, app_styles, custom_button
 
 class RouteProfilePage extends StatefulWidget {
   final RouteModel route;

@@ -41,6 +41,9 @@ class _TripTimeScreenState extends State<TripTimeScreen> {
       value: (tripData.startDate != null && tripData.endDate != null) ? [tripData.startDate, tripData.endDate] : [],
     );
 
+    // Guard against using the passed BuildContext after an async gap.
+    if (!context.mounted) return;
+
     if (results != null && results.length == 2 && results[0] != null && results[1] != null) {
       final start = results[0]!.isBefore(results[1]!) ? results[0]! : results[1]!;
       final end = results[0]!.isBefore(results[1]!) ? results[1]! : results[0]!;
@@ -105,7 +108,7 @@ class _TripTimeScreenState extends State<TripTimeScreen> {
                     color: Colors.white,
                     border: Border.all(color: primaryGreen, width: 1.5),
                     borderRadius: BorderRadius.circular(8),
-                    boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.2), spreadRadius: 1, blurRadius: 4, offset: const Offset(0, 2))],
+                    boxShadow: [BoxShadow(color: Colors.grey.withValues(alpha: 0.2), spreadRadius: 1, blurRadius: 4, offset: const Offset(0, 2))],
                   ),
                   child: Row(
                     children: [

@@ -1,5 +1,8 @@
 # seed_routes.py (Trong thư mục backend/plan/)
+import logging
 from plan.models import Route
+
+logger = logging.getLogger(__name__)
 
 # Dữ liệu 15 cung đường Trekking
 routes_data = [
@@ -82,7 +85,7 @@ routes_data = [
 
 # --- LOGIC THỰC HIỆN ---
 Route.objects.all().delete()
-print("--- Đã xóa toàn bộ dữ liệu Route cũ ---")
+logger.info("--- Đã xóa toàn bộ dữ liệu Route cũ ---")
 
 count = 0
 for data in routes_data:
@@ -101,4 +104,4 @@ for data in routes_data:
     )
     count += 1
 
-print(f"✅ Đã nạp thành công {count} cung đường trekking.")
+logger.info("✅ Đã nạp thành công %d cung đường trekking.", count)

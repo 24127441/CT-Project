@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'token_service.dart';
 import '../models/trip_template.dart';
 
@@ -19,14 +20,14 @@ class TemplateService {
   // 1. GET: Lấy danh sách mẫu
   Future<List<TripTemplate>> getTemplates() async {
     final token = await _tokenService.getToken();
-    print("==== TOKEN ====");
-    print(token);
+    debugPrint("==== TOKEN ====");
+    debugPrint(token);
     // Debug log
-    print("GET Templates - Token: ${token != null ? 'Có' : 'Không'}");
+    debugPrint("GET Templates - Token: ${token != null ? 'Có' : 'Không'}");
     if (token == null) return [];
 
     try {
-      print("Đang gọi API: $baseUrl");
+      debugPrint("Đang gọi API: $baseUrl");
       final response = await http.get(
         Uri.parse(baseUrl),
         headers: {
@@ -35,7 +36,7 @@ class TemplateService {
         },
       );
 
-      print("Response Code: ${response.statusCode}");
+      debugPrint("Response Code: ${response.statusCode}");
 
       if (response.statusCode == 200) {
         // Fix lỗi charset nếu bị lỗi font tiếng Việt
@@ -43,11 +44,11 @@ class TemplateService {
         final List<dynamic> data = jsonDecode(responseBody);
         return data.map((json) => TripTemplate.fromJson(json)).toList();
       } else {
-        print('Lỗi Server: ${response.body}');
+        debugPrint('Lỗi Server: ${response.body}');
         return [];
       }
     } catch (e) {
-      print('Lỗi kết nối (GET): $e');
+      debugPrint('Lỗi kết nối (GET): $e');
       return [];
     }
   }
@@ -57,13 +58,13 @@ class TemplateService {
     final token = await _tokenService.getToken();
 
     if (token == null) {
-      print("Lỗi: Chưa đăng nhập (Token null)");
+      debugPrint("Lỗi: Chưa đăng nhập (Token null)");
       return false;
     }
 
     try {
-      print("Đang POST tới: $baseUrl");
-      print("Dữ liệu gửi đi: ${jsonEncode(templateData)}");
+      debugPrint("Đang POST tới: $baseUrl");
+      debugPrint("Dữ liệu gửi đi: ${jsonEncode(templateData)}");
 
       final response = await http.post(
         Uri.parse(baseUrl),
@@ -74,14 +75,14 @@ class TemplateService {
         body: jsonEncode(templateData),
       );
 
-      print("POST Status Code: ${response.statusCode}");
+      debugPrint("POST Status Code: ${response.statusCode}");
 
       if (response.statusCode == 201 || response.statusCode == 200) {
-        print("✅ Lưu thành công!");
+        debugPrint("✅ Lưu thành công!");
         return true;
       } else {
         // In chi tiết lỗi từ Backend
-        print("❌ Lưu thất bại. Server phản hồi: ${response.body}");
+        debugPrint("❌ Lưu thất bại. Server phản hồi: ${response.body}");
 
         // Thử throw exception để UI hiện thông báo
         final errorData = jsonDecode(utf8.decode(response.bodyBytes));
@@ -91,7 +92,7 @@ class TemplateService {
         throw Exception('Lỗi Server: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ Lỗi kết nối (POST): $e');
+      debugPrint('❌ Lỗi kết nối (POST): $e');
       rethrow;
     }
   }

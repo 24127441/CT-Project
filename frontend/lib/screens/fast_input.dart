@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/trip_template.dart';
-import '../services/template_service.dart';
 import '../providers/trip_provider.dart';
+import '../services/supabase_db_service.dart';
 // Import all steps to build the navigation stack
 import 'tripinfopart1.dart';
 import 'tripinfopart2.dart';
@@ -18,18 +17,18 @@ class TripListView extends StatefulWidget {
 }
 
 class _TripListViewState extends State<TripListView> {
-  final TemplateService _templateService = TemplateService();
-  late Future<List<TripTemplate>> _templatesFuture;
+  final SupabaseDbService _db = SupabaseDbService();
+  late Future<List<Map<String, dynamic>>> _historyFuture;
 
   @override
   void initState() {
     super.initState();
-    _refreshTemplates();
+    _refreshHistory();
   }
 
-  void _refreshTemplates() {
+  void _refreshHistory() {
     setState(() {
-      _templatesFuture = _templateService.getTemplates();
+      _historyFuture = _db.getHistoryInputs();
     });
   }
 
@@ -61,8 +60,8 @@ class _TripListViewState extends State<TripListView> {
             ),
             const SizedBox(height: 8),
             Expanded(
-              child: FutureBuilder<List<TripTemplate>>(
-                future: _templatesFuture,
+              child: FutureBuilder<List<Map<String, dynamic>>>(
+                future: _historyFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator(color: Color(0xFF4CAF50)));
@@ -74,7 +73,7 @@ class _TripListViewState extends State<TripListView> {
 
                   final templates = snapshot.data!;
                   return RefreshIndicator(
-                    onRefresh: () async => _refreshTemplates(),
+                    onRefresh: () async => _refreshHistory(),
                     child: ListView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                       itemCount: templates.length,
@@ -114,20 +113,33 @@ class _TripListViewState extends State<TripListView> {
     );
   }
 
-  Widget _buildTemplateCard(BuildContext context, TripTemplate template) {
+  Widget _buildTemplateCard(BuildContext context, Map<String, dynamic> tpl) {
+    final name = tpl['template_name'] ?? tpl['name'] ?? 'Mẫu mới';
+    final location = tpl['location'] ?? tpl['payload']?['location'] ?? '';
+    final duration = tpl['duration_days'] ?? tpl['payload']?['duration_days'];
+    final restType = tpl['rest_type'] ?? tpl['payload']?['rest_type'] ?? '';
+    final groupSize = tpl['group_size'] ?? tpl['payload']?['group_size'];
+
+    String subtitleLeft = location;
+    if (duration != null) subtitleLeft = '$subtitleLeft • ${duration.toString()} ngày';
+    String subtitleRight = restType;
+    if (groupSize != null) {
+      final gs = (groupSize is int) ? groupSize : int.tryParse(groupSize.toString()) ?? 0;
+      final label = gs >= 7 ? 'Nhóm đông (7+ người)' : (gs >= 3 ? 'Nhóm nhỏ (3-6 người)' : 'Đơn lẻ (1-2 người)');
+      subtitleRight = '$subtitleRight • $label';
+    }
+
     return GestureDetector(
       onTap: () {
-        // 1. Apply template data to Provider
-        context.read<TripProvider>().applyTemplate(template);
+        // Apply history input to provider
+        context.read<TripProvider>().applyHistoryInput(tpl);
 
-        // 2. BUILD THE STACK: Push Step 1 -> 2 -> 3 -> 4 -> 5
-        // We use PageRouteBuilder with zero duration to make it look instant to the user.
-        // This ensures that pressing "Back" in Step 5 takes them to Step 4.
-        Navigator.push(context, _noAnimRoute(const TripInfoScreen()));    // Step 1
-        Navigator.push(context, _noAnimRoute(const TripTimeScreen()));    // Step 2
-        Navigator.push(context, _noAnimRoute(const TripLevelScreen()));   // Step 3
-        Navigator.push(context, _noAnimRoute(const TripRequestScreen())); // Step 4
-        Navigator.push(context, _noAnimRoute(const TripConfirmScreen())); // Step 5
+        // Push the trip info stack so user can continue/edit
+        Navigator.push(context, _noAnimRoute(const TripInfoScreen()));
+        Navigator.push(context, _noAnimRoute(const TripTimeScreen()));
+        Navigator.push(context, _noAnimRoute(const TripLevelScreen()));
+        Navigator.push(context, _noAnimRoute(const TripRequestScreen()));
+        Navigator.push(context, _noAnimRoute(const TripConfirmScreen()));
       },
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
@@ -143,16 +155,16 @@ class _TripListViewState extends State<TripListView> {
                 ),
               ),
             ),
-            Positioned.fill(
+             Positioned.fill(
               child: Container(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(color: Colors.black.withOpacity(0.2)),
+                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.2)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Text(
-                      template.name,
+                      name,
                       style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -164,7 +176,7 @@ class _TripListViewState extends State<TripListView> {
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            "${template.location} • ${template.durationDays} ngày",
+                            subtitleLeft,
                             style: const TextStyle(color: Colors.white70, fontSize: 14),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -174,10 +186,53 @@ class _TripListViewState extends State<TripListView> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      "${template.accommodation} • ${template.paxGroup}",
+                      subtitleRight,
                       style: const TextStyle(color: Colors.white60, fontSize: 13),
                     ),
-                  ],
+                   ],
+                 ),
+               ),
+             ),
+            // Delete button (painted last so it's on top)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: GestureDetector(
+                onTap: () async {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Xóa mẫu'),
+                      content: const Text('Bạn có chắc muốn xóa mẫu này?'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Hủy')),
+                        TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Xóa', style: TextStyle(color: Colors.red))),
+                      ],
+                    ),
+                  );
+
+                  if (confirmed != true) return;
+                  try {
+                    final db = SupabaseDbService();
+                    final id = tpl['id'];
+                    if (id is int) {
+                      await db.deleteHistoryInput(id);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã xóa mẫu'), backgroundColor: Colors.green));
+                      }
+                      // Refresh the list
+                      if (mounted) setState(() { _refreshHistory(); });
+                    } else {
+                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Không tìm thấy id mẫu'), backgroundColor: Colors.red));
+                    }
+                  } catch (e) {
+                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi xóa: $e'), backgroundColor: Colors.red));
+                  }
+                },
+                child: Container(
+                  decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(20)),
+                  padding: const EdgeInsets.all(6),
+                  child: const Icon(Icons.delete_outline, color: Colors.white, size: 18),
                 ),
               ),
             ),

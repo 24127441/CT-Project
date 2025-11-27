@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ApiService {
@@ -61,10 +62,10 @@ class ApiService {
       );
       return true;
     } on DioException catch (e) {
-      print('Register error: ${e.response?.data}');
+      debugPrint('Register error: ${e.response?.data}');
       return false;
     } catch (e) {
-      print('Unknown register error: $e');
+      debugPrint('Unknown register error: $e');
       return false;
     }
   }
@@ -78,10 +79,10 @@ class ApiService {
       );
       return response.statusCode == 200;
     } on DioException catch (e) {
-      print('Login error: ${e.response?.data}');
+      debugPrint('Login error: ${e.response?.data}');
       return false;
     } catch (e) {
-      print('Unknown login error: $e');
+      debugPrint('Unknown login error: $e');
       return false;
     }
   }
@@ -97,7 +98,7 @@ class ApiService {
       final response = await _dio.get('/api/routes/suggested/', queryParameters: queryParams);
       return response.data as List<dynamic>;
     } on DioException catch (e) {
-      print('fetchSuggestedRoutes error: ${e.response?.data}');
+      debugPrint('fetchSuggestedRoutes error: ${e.response?.data}');
       rethrow;
     }
   }
@@ -107,7 +108,7 @@ class ApiService {
     try {
       await _dio.post('/api/history-inputs/', data: body);
     } on DioException catch (e) {
-      print('saveHistoryInput error: ${e.response?.data}');
+      debugPrint('saveHistoryInput error: ${e.response?.data}');
       rethrow;
     }
   }
@@ -118,7 +119,7 @@ class ApiService {
       final response = await _dio.post('/api/plans/', data: body);
       return response.data;
     } on DioException catch (e) {
-      print('createPlan error: ${e.response?.data}');
+      debugPrint('createPlan error: ${e.response?.data}');
       rethrow;
     }
   }

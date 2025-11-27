@@ -28,6 +28,7 @@ class _TripDashboardState extends State<TripDashboard> {
       context,
       MaterialPageRoute(builder: (context) => const _NoteEditorScreen()),
     );
+    if (!mounted) return;
     if (newNote != null && newNote.isNotEmpty) {
       setState(() {
         _notes.add(newNote);

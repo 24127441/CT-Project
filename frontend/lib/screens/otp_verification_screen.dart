@@ -4,16 +4,18 @@ import '../widgets/custom_button.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_styles.dart';
 import '../services/auth_service.dart'; // Import Service
-import '../services/token_service.dart'; // 1. Import TokenService
 import 'package:supabase_flutter/supabase_flutter.dart'; // Thêm dòng này
 
 class OtpVerificationScreen extends StatefulWidget {
-  final String email; 
+  final String email;
+  /// If true the screen will send an OTP automatically when it opens.
+  final bool autoSend;
 
   const OtpVerificationScreen({
-    Key? key, 
-    required this.email
-  }) : super(key: key);
+    super.key,
+    required this.email,
+    this.autoSend = true,
+  });
 
   @override
   State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
@@ -21,7 +23,6 @@ class OtpVerificationScreen extends StatefulWidget {
 
 class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   final AuthService _authService = AuthService();
-  final TokenService _tokenService = TokenService(); // 2. Initialize TokenService
   
   bool _isLoading = false;
   // Accept 4-digit OTP (preferred)
@@ -46,8 +47,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         } else {
           _fullOtpFocus.requestFocus();
         }
-        // Send OTP automatically when the screen appears
-        _handleVerification();
+        // Send OTP automatically when the screen appears only if allowed
+        if (widget.autoSend) {
+          _handleVerification();
+        }
       }
     });
   }
@@ -180,20 +183,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 const Text('Xác thực tài khoản', style: AppStyles.heading),
                 const SizedBox(height: 8),
                 Text(
-                  'Nhập mã xác thực OTP chúng tôi đã gửi về:\n${widget.email}',
+                  'Vui lòng thực hiện xác thực tại email:\n${widget.email}',
                   textAlign: TextAlign.center,
                   style: AppStyles.subheading,
                 ),
-                const SizedBox(height: 32),
-                
-                const SizedBox(height: 24),
-                Text(
-                  'We will send an OTP code to the email below. Enter the code here to complete sign-in.',
-                  textAlign: TextAlign.center,
-                  style: AppStyles.bodyText,
-                ),
-                const SizedBox(height: 16),
-                Text(widget.email, style: AppStyles.subheading, textAlign: TextAlign.center),
                 const SizedBox(height: 24),
                 _isLoading
                     ? const CircularProgressIndicator(color: AppColors.primaryGreen)
@@ -254,32 +247,17 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(8)],
                                 decoration: const InputDecoration(
-                                  labelText: 'Or paste full code here',
+                                  labelText: 'Hoặc dán mã đầy đủ tại đây',
                                   border: OutlineInputBorder(),
-                                  hintText: 'Paste the code you received',
+                                  hintText: 'Nhập mã xác thực',
                                 ),
-                                onChanged: (v) {
-                                  final trimmed = v.trim();
-                                  if (trimmed.length >= 4 && trimmed.length <= 8) {
-                                    if (_showDigitBoxes) {
-                                      // Auto-fill single-digit boxes for UX feedback
-                                      for (var i = 0; i < _otpLength; i++) {
-                                        _controllers[i].text = i < trimmed.length ? trimmed[i] : '';
-                                      }
-                                    }
-                                    // Unfocus keyboard after paste
-                                    FocusScope.of(context).unfocus();
-                                  }
-                                },
                               ),
                             ),
                           const SizedBox(height: 12),
-                          CustomButton(text: 'Verify code', onPressed: _verifyCode),
-                          const SizedBox(height: 12),
-                          CustomButton(text: 'Send OTP', onPressed: _handleVerification),
+                          CustomButton(text: 'Xác nhận', onPressed: _verifyCode),
                           TextButton(
                             onPressed: _isLoading ? null : _handleVerification,
-                            child: const Text('Resend OTP'),
+                            child: const Text('Gửi lại mã xác thực'),
                           ),
                         ],
                       ),

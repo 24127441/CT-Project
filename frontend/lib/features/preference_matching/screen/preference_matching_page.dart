@@ -22,7 +22,7 @@ class PreferenceMatchingPage extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 1,
         foregroundColor: AppColors.textDark,
-        shadowColor: Colors.black.withOpacity(0.1),
+        shadowColor: Colors.black.withValues(alpha: 0.1),
       ),
       body: routeList.isEmpty
           ? _buildEmptyState(context)

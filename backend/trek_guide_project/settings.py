@@ -15,6 +15,7 @@ import os
 from dotenv import load_dotenv
 import socket
 import urllib.parse as urlparse
+import logging
 
 load_dotenv()
 
@@ -48,8 +49,8 @@ def get_host_ip():
 
 HOST_IP = get_host_ip()
 
-# In ra terminal để bạn dễ kiểm tra lúc chạy server
-print(f"\n DETECTED SYSTEM IP: {HOST_IP}\n")
+# Log detected host IP instead of printing to stdout
+logging.getLogger(__name__).info("DETECTED SYSTEM IP: %s", HOST_IP)
 
 ALLOWED_HOSTS = ['10.0.2.2', 'localhost', '127.0.0.1', HOST_IP]
 # ---------------------------------
