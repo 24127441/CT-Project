@@ -29,7 +29,6 @@ class RouteSuggestionCard extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16.0),
           child: Stack(
-            // Không dùng alignment: Alignment.bottomLeft nữa để cho phép nội dung tự giãn
             children: [
               // 1. Ảnh nền (Dùng Positioned.fill để lấp đầy)
               Positioned.fill(
@@ -48,7 +47,7 @@ class RouteSuggestionCard extends StatelessWidget {
                 ),
               ),
 
-              // 2. Gradient Overlay (Dùng Positioned.fill để lấp đầy)
+              // 2. Lớp phủ Gradient
               Positioned.fill(
                 child: Container(
                   decoration: BoxDecoration(
@@ -56,21 +55,21 @@ class RouteSuggestionCard extends StatelessWidget {
                       begin: Alignment.bottomCenter,
                       end: Alignment.topCenter,
                       colors: [
-                        Colors.black.withValues(alpha: 0.9), // Đen đậm ở đáy
-                        Colors.black.withValues(alpha: 0.6), // Đen vừa ở giữa
-                        Colors.transparent,                  // Trong suốt ở trên
+                        Colors.black.withValues(alpha: 0.9),
+                        Colors.black.withValues(alpha: 0.6),
+                        Colors.transparent,
                       ],
-                      stops: const [0.0, 0.6, 1.0], // Kéo dài vùng đen lên cao hơn
+                      stops: const [0.0, 0.6, 1.0],
                     ),
                   ),
                 ),
               ),
 
-              // 3. Nội dung Text (Đặt trong Container ở đáy để tự đẩy chiều cao card)
+              // 3. Nội dung Text (Dùng Align để giữ nội dung ở đáy và tự đẩy chiều cao card)
               Align(
                 alignment: Alignment.bottomLeft,
                 child: Container(
-                  padding: const EdgeInsets.all(16.0), // Padding xung quanh text
+                  padding: const EdgeInsets.all(16.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -87,15 +86,15 @@ class RouteSuggestionCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
 
-                      // AI Note hoặc Mô tả thường
-                      route.aiNote.isNotEmpty
+                      // --- LOGIC HIỂN THỊ AI NOTE HOẶC MÔ TẢ THƯỜNG ---
+                      route.matchReason.isNotEmpty
                           ? Container(
-                        padding: const EdgeInsets.all(12), // Tăng padding bên trong box AI
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.7),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: const Color(0xFF66BB6A),
+                            color: const Color(0xFF66BB6A), // Viền xanh lá
                             width: 1,
                           ),
                         ),
@@ -105,19 +104,19 @@ class RouteSuggestionCard extends StatelessWidget {
                             const Icon(
                                 Icons.auto_awesome,
                                 color: Color(0xFF66BB6A),
-                                size: 18 // Tăng nhẹ kích thước icon
+                                size: 18
                             ),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                route.aiNote,
+                                route.matchReason,
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 14, // Tăng nhẹ cỡ chữ
+                                  fontSize: 14,
                                   fontStyle: FontStyle.italic,
-                                  height: 1.4, // Tăng khoảng cách dòng cho dễ đọc
+                                  height: 1.4,
                                 ),
-                                // Bỏ maxLines và overflow để hiển thị hết nội dung
+                                // Đã bỏ maxLines để hiển thị hết nội dung AI
                               ),
                             ),
                           ],
@@ -129,7 +128,7 @@ class RouteSuggestionCard extends StatelessWidget {
                             color: Colors.white.withValues(alpha: 0.9),
                             height: 1.3
                         ),
-                        maxLines: 3, // Tăng số dòng tối đa cho mô tả thường
+                        maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],

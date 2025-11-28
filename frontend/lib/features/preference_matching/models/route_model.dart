@@ -11,6 +11,7 @@ class RouteModel {
   final int elevationGainM;
   final String terrain;
   final String aiNote;
+  final String matchReason;
 
   RouteModel({
     required this.id,
@@ -25,6 +26,7 @@ class RouteModel {
     required this.elevationGainM,
     required this.terrain,
     required this.aiNote,
+    this.matchReason = '',
   });
 
   RouteModel copyWith({
@@ -40,6 +42,7 @@ class RouteModel {
     int? elevationGainM,
     String? terrain,
     String? aiNote,
+    String? matchReason,
   }) {
     return RouteModel(
       id: id ?? this.id,
@@ -54,6 +57,7 @@ class RouteModel {
       elevationGainM: elevationGainM ?? this.elevationGainM,
       terrain: terrain ?? this.terrain,
       aiNote: aiNote ?? this.aiNote,
+      matchReason: matchReason ?? this.matchReason,
     );
   }
 
@@ -133,6 +137,7 @@ class RouteModel {
 
       terrain: translatedTerrain.isNotEmpty ? translatedTerrain.join(', ') : 'Đồi núi tự nhiên',
       aiNote: json['ai_note'] ?? '',
+      matchReason: '',
     );
   }
 

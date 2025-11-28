@@ -104,20 +104,17 @@ class GeminiService {
 
       for (var item in aiResults) {
         final int id = item['id'];
-        final String reason = item['ai_reason'];
+        final String reason = item['ai_reason']; // Text Gemini trả về
 
-        // Tìm route gốc trong danh sách allRoutes
-        // Dùng firstWhere để tìm đúng ID
         try {
           final originalRoute = allRoutes.firstWhere((r) => r.id == id);
-          // Tạo bản copy mới với lời khuyên của AI
-          recommendedRoutes.add(originalRoute.copyWith(aiNote: reason));
+
+          recommendedRoutes.add(originalRoute.copyWith(matchReason: reason));
+
         } catch (e) {
-          // Bỏ qua nếu AI bị ảo giác trả về ID không tồn tại
           continue;
         }
       }
-
       return recommendedRoutes;
 
     } catch (e) {
