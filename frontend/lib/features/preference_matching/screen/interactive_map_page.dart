@@ -1,29 +1,104 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:frontend/features/preference_matching/models/route_model.dart';
 import 'package:frontend/utils/app_colors.dart';
 import 'package:frontend/utils/app_styles.dart';
 import 'package:frontend/widgets/custom_button.dart';
+import 'package:frontend/providers/trip_provider.dart';
+import 'package:frontend/services/api_service.dart';
+import 'package:frontend/screens/PEC.dart';
 
-class InteractiveMapPage extends StatelessWidget {
+class InteractiveMapPage extends StatefulWidget {
   final RouteModel route;
 
   const InteractiveMapPage({super.key, required this.route});
+
+  @override
+  State<InteractiveMapPage> createState() => _InteractiveMapPageState();
+}
+
+class _InteractiveMapPageState extends State<InteractiveMapPage> {
+  bool _isLoading = false;
+
+  Future<void> _confirmRoute(BuildContext context) async {
+    // 1. Set loading state
+    setState(() => _isLoading = true);
+    
+    print("🔴 [InteractiveMapPage] Confirm button pressed");
+
+    try {
+      // 2. Get user inputs from the TripProvider
+      final tripProvider = Provider.of<TripProvider>(context, listen: false);
+      
+      print("🔴 [InteractiveMapPage] Provider data: Name=${tripProvider.tripName}, Location=${tripProvider.searchLocation}");
+
+
+      // 3. Construct the payload for the Django Backend
+      // Note: We map 'route_id' to 'route' as per your API spec.
+      // Ensure widget.route.id corresponds to the ID in your database.
+      final Map<String, dynamic> payload = {
+        "name": tripProvider.tripName.isNotEmpty 
+            ? tripProvider.tripName 
+            : "Chuyến đi đến ${widget.route.location}",
+        "route": widget.route.id, // Sending the Route ID
+        "location": tripProvider.searchLocation,
+        "rest_type": tripProvider.accommodation ?? "Unknown", // Default if null
+        "group_size": tripProvider.parsedGroupSize,
+        // Formatting Date to YYYY-MM-DD
+        "start_date": tripProvider.startDate?.toIso8601String().split('T').first ?? DateTime.now().toIso8601String().split('T').first,
+        "duration_days": tripProvider.durationDays,
+        "difficulty": tripProvider.difficultyLevel ?? "Medium", // Default
+        "personal_interest": tripProvider.selectedInterests,
+      };
+      
+      print("🔴 [InteractiveMapPage] Payload: $payload");
+
+      // 4. Call the Backend API
+      final apiService = ApiService();
+      print("🔴 [InteractiveMapPage] Calling ApiService.createPlan...");
+      
+      // This request triggers the Python logic to generate the PEC list
+      final responseData = await apiService.createPlan(payload);
+      
+      print("🔴 [InteractiveMapPage] API Success! Response: $responseData");
+
+      if (!mounted) return;
+
+      // 5. Navigate to PEC Screen
+      // Pass the responseData if needed by PECScreen (e.g. plan ID)
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const PECScreen()),
+      );
+      
+    } catch (e) {
+      print("🔴 [InteractiveMapPage] ERROR: $e");
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi kết nối server: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          // Map Background (Replaced missing asset with a network image)
+          // Map Background
           Container(
-            color: AppColors.lightGray, // A neutral background for the map area
+            color: AppColors.lightGray,
             child: Image.network(
-              'https://images.unsplash.com/photo-1585435465945-597426701a4d?q=80&w=1974&auto=format&fit=crop',
+              // Using a valid image URL or fallback
+              widget.route.imageUrl.isNotEmpty 
+                  ? widget.route.imageUrl 
+                  : 'https://images.unsplash.com/photo-1585435465945-597426701a4d?q=80&w=1974&auto=format&fit=crop',
               fit: BoxFit.cover,
               height: double.infinity,
               width: double.infinity,
-              // Add a loading builder for a better user experience
-              loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
+              loadingBuilder: (context, child, loadingProgress) {
                 if (loadingProgress == null) return child;
                 return Center(
                   child: CircularProgressIndicator(
@@ -33,11 +108,12 @@ class InteractiveMapPage extends StatelessWidget {
                   ),
                 );
               },
-              errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.map_outlined, color: AppColors.textGray, size: 60)),
+              errorBuilder: (context, error, stackTrace) => 
+                  const Center(child: Icon(Icons.map_outlined, color: AppColors.textGray, size: 60)),
             ),
           ),
 
-          // Top buttons (Back, 3D)
+          // Top buttons
           Positioned(
             top: MediaQuery.of(context).padding.top + 12,
             left: 16,
@@ -70,10 +146,10 @@ class InteractiveMapPage extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Title and Stats
-                      Text('${route.name} - ${route.location}', style: AppStyles.mapTitle),
+                      Text('${widget.route.name} - ${widget.route.location}', style: AppStyles.mapTitle),
                       const SizedBox(height: 8),
                       Text(
-                        '${route.distanceKm} km, ${route.elevationGainM} m gain, Est. ${route.durationDays} days',
+                        '${widget.route.distanceKm} km, ${widget.route.elevationGainM} m gain, Est. ${widget.route.durationDays} days',
                         style: AppStyles.mapStats,
                       ),
                       const SizedBox(height: 24),
@@ -92,19 +168,22 @@ class InteractiveMapPage extends StatelessWidget {
                       // AI Note
                       const Text('AI Note:', style: AppStyles.aiNoteTitle),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque euismod, urna eu tincidunt consectetur, nisi nisl aliquet nunc, eget aliquam nisl nunc eget nisl.',
+                      // Use actual AI note if available, else dummy text
+                      Text(
+                        widget.route.aiNote ?? 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque euismod, urna eu tincidunt consectetur...',
                         style: AppStyles.bodyText,
                       ),
                       const SizedBox(height: 32),
 
                       // Confirm Button
-                      CustomButton(
-                        text: 'XÁC NHẬN LỘ TRÌNH',
-                        onPressed: () {},
-                        backgroundColor: AppColors.primaryGreen,
-                        style: AppStyles.profileButton.copyWith(color: Colors.white),
-                      ),
+                      _isLoading 
+                        ? const Center(child: CircularProgressIndicator(color: AppColors.primaryGreen))
+                        : CustomButton(
+                            text: 'XÁC NHẬN LỘ TRÌNH',
+                            onPressed: () => _confirmRoute(context),
+                            backgroundColor: AppColors.primaryGreen,
+                            style: AppStyles.profileButton.copyWith(color: Colors.white),
+                          ),
                     ],
                   ),
                 ),

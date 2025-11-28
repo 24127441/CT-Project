@@ -4,24 +4,26 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// A complete screen for displaying the Personal Equipment Checklist.
-/// Use it like this:
-/// Navigator.push(context, MaterialPageRoute(builder: (_) => const PECScreen()));
 class PECScreen extends StatelessWidget {
-  const PECScreen({super.key});
+  // Optional: Accept planData if you want to highlight specific items later
+  final Map<String, dynamic>? planData;
+
+  const PECScreen({super.key, this.planData});
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Color(0xFFF8F6F2),
-      body: SafeArea(child: PECContent()),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F6F2), // Off-white background
+      body: SafeArea(
+        child: PECContent(planData: planData),
+      ),
     );
   }
 }
 
-/// The main content widget for the PEC screen.
-/// Can be embedded in an existing Scaffold.
 class PECContent extends StatefulWidget {
-  const PECContent({super.key});
+  final Map<String, dynamic>? planData;
+  const PECContent({super.key, this.planData});
 
   @override
   State<PECContent> createState() => _PECContentState();
@@ -55,10 +57,9 @@ class _EquipmentItem {
       id: map['id'].toString(),
       name: map['name'] as String,
       category: map['category'] as String,
-      // Safely handle price as num (int or double) and convert to double
       price: (map['price'] as num).toDouble(),
-      imageUrl: map['image_url'] as String? ?? '', // Handle potential null
-      weightGrams: map['weight_grams'] as int? ?? 0, // Handle potential null
+      imageUrl: map['image_url'] as String? ?? '',
+      weightGrams: map['weight_grams'] as int? ?? 0,
     );
   }
 }
@@ -68,39 +69,41 @@ enum _SortOption { none, lowToHigh, highToLow }
 // ----------------- STATE -----------------
 
 class _PECContentState extends State<PECContent> {
-  // --- UI Constants & Theme ---
-  final Color _primaryGreen = const Color(0xFF35C759);
-  final Color _scaffoldBg = const Color(0xFFF8F6F2);
-  final Color _chipBg = const Color(0xFFEFEFEF);
-  final Color _redPrice = const Color(0xFFE53935);
+  // --- UI Colors from Figma ---
+  final Color _primaryGreen = const Color(0xFF4CD964); // Bright Green
+  final Color _textBlack = const Color(0xFF1D1D1D);
+  final Color _textGray = const Color(0xFF8E8E93);
+  final Color _priceRed = const Color(0xFFE02020);
+  final Color _bgGray = const Color(0xFFF2F2F7);
 
-  // --- State Variables ---
+  // --- State ---
   late Future<List<_EquipmentItem>> _itemsFuture;
   List<_EquipmentItem> _allEquipment = [];
+  
+  // Hardcoded categories to match Figma Tabs
   final List<String> _categories = <String>[
     'Quần áo',
     'Phụ kiện',
     'Dụng cụ',
     'Thực phẩm',
   ];
-  int _currentCategory = 0;
+  
+  int _currentCategoryIndex = 2; // Default to "Dụng cụ" like in Figma
   _SortOption _sortOption = _SortOption.none;
-  bool _isPriceFilterVisible = false;
-  double _maxPrice = 1000000; // Default max, will be updated
-  late RangeValues _priceRange;
-  late RangeValues _tempPriceRange;
+  
+  // Filter State
+  double _maxPriceLimit = 5000000; 
+  RangeValues _currentPriceRange = const RangeValues(0, 5000000);
 
   @override
   void initState() {
     super.initState();
-    _priceRange = RangeValues(0, _maxPrice);
-    _tempPriceRange = RangeValues(0, _maxPrice);
     _itemsFuture = _fetchEquipment();
   }
 
-  // --- Data Fetching ---
   Future<List<_EquipmentItem>> _fetchEquipment() async {
     try {
+      // Fetch all items from Supabase
       final response = await Supabase.instance.client.from('equipment').select();
       final List<_EquipmentItem> loadedItems = response
           .map<_EquipmentItem>((item) => _EquipmentItem.fromMap(item))
@@ -110,174 +113,135 @@ class _PECContentState extends State<PECContent> {
         setState(() {
           _allEquipment = loadedItems;
           if (loadedItems.isNotEmpty) {
-            // Dynamically set the max price for the slider
-            final maxPriceFromData = loadedItems.map((e) => e.price).reduce(max);
-            _maxPrice = maxPriceFromData > 0 ? maxPriceFromData : _maxPrice;
-            _priceRange = RangeValues(0, _maxPrice);
-            _tempPriceRange = RangeValues(0, _maxPrice);
+            double maxP = loadedItems.map((e) => e.price).reduce(max);
+            _maxPriceLimit = maxP;
+            _currentPriceRange = RangeValues(0, maxP);
           }
         });
       }
       return loadedItems;
     } catch (e) {
-      if (mounted) {
-        debugPrint('Error fetching equipment: $e');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi tải dữ liệu: $e')),
-        );
-      }
+      debugPrint('Error fetching equipment: $e');
       return [];
     }
   }
 
-  // --- Calculation Getters ---
   List<_EquipmentItem> get _visibleItems {
-    final String cat = _categories[_currentCategory];
-    final double min = _priceRange.start;
-    final double max = _priceRange.end;
+    if (_allEquipment.isEmpty) return [];
+    final String currentCat = _categories[_currentCategoryIndex];
+    
+    // 1. Filter by Category & Price
+    List<_EquipmentItem> filtered = _allEquipment.where((e) {
+      // Map backend categories (often English) to UI categories (Vietnamese)
+      // This is a simple loose match. Adjust logic if backend uses strict keys.
+      bool catMatch = false;
+      if (currentCat == 'Quần áo') catMatch = e.category.contains('Quần áo') || e.category.contains('Clothing');
+      else if (currentCat == 'Phụ kiện') catMatch = e.category.contains('Phụ kiện') || e.category.contains('Accessories');
+      else if (currentCat == 'Dụng cụ') catMatch = e.category.contains('Dụng cụ') || e.category.contains('Gear') || e.category.contains('Tools');
+      else if (currentCat == 'Thực phẩm') catMatch = e.category.contains('Thực phẩm') || e.category.contains('Food');
+      else catMatch = true; // Fallback
 
-    final List<_EquipmentItem> list = _allEquipment
-        .where((e) => e.category == cat && e.price >= min && e.price <= max)
-        .toList();
+      bool priceMatch = e.price >= _currentPriceRange.start && e.price <= _currentPriceRange.end;
+      
+      return catMatch && priceMatch;
+    }).toList();
 
+    // 2. Sort
     if (_sortOption == _SortOption.lowToHigh) {
-      list.sort((a, b) => a.price.compareTo(b.price));
+      filtered.sort((a, b) => a.price.compareTo(b.price));
     } else if (_sortOption == _SortOption.highToLow) {
-      list.sort((a, b) => b.price.compareTo(a.price));
+      filtered.sort((a, b) => b.price.compareTo(a.price));
     }
-    return list;
+
+    return filtered;
   }
 
-  double get _totalMoney {
-    return _allEquipment.fold(0.0, (sum, item) {
-      return item.selected ? sum + (item.price * item.quantity) : sum;
-    });
-  }
-
-  int get _saving => (_totalMoney * 0.12).round(); // Demo saving
-
-  bool get _allSelected {
-    final visible = _visibleItems;
-    if (visible.isEmpty) return false;
-    return visible.every((e) => e.selected);
-  }
+  double get _totalMoney => _visibleItems.fold(0, (sum, e) => e.selected ? sum + (e.price * e.quantity) : sum);
+  //double get _totalSavings => _totalMoney * 0.12; // 12% discount logic from Figma
+  bool get _isAllSelected => _visibleItems.isNotEmpty && _visibleItems.every((e) => e.selected);
 
   void _toggleSelectAll(bool? value) {
     setState(() {
-      for (final _EquipmentItem e in _visibleItems) {
-        e.selected = value ?? false;
+      for (var item in _visibleItems) {
+        item.selected = value ?? false;
       }
     });
   }
 
-  String _formatCurrency(num value) {
-    return NumberFormat.currency(locale: 'vi_VN', symbol: 'đ').format(value);
+  String _formatCurrency(double value) {
+    return NumberFormat.currency(locale: 'vi_VN', symbol: 'đ', decimalDigits: 0).format(value);
   }
 
-  // ----------------- UI BUILD -----------------
+  // ----------------- UI BUILDER -----------------
+
   @override
   Widget build(BuildContext context) {
     return Column(
-      children: <Widget>[
+      children: [
         _buildHeader(context),
+        const SizedBox(height: 10),
+        _buildCategoryList(),
         const SizedBox(height: 12),
-        _buildCategoryTabs(),
-        const SizedBox(height: 12),
-        _buildFilterRow(),
-        if (_isPriceFilterVisible) _buildPriceFilterCard(),
-        const SizedBox(height: 8),
+        _buildFilterBar(),
+        const SizedBox(height: 10),
         Expanded(
-          child: FutureBuilder<List<_EquipmentItem>>(
-            future: _itemsFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting && _allEquipment.isEmpty) {
-                return const Center(child: CircularProgressIndicator());
-              } else if (snapshot.hasError) {
-                return Center(child: Text('Lỗi: ${snapshot.error}'));
-              } else if (_visibleItems.isEmpty) {
-                return const Center(child: Text('Không có vật dụng nào phù hợp.'));
-              }
-
-              return Stack(
-                children: <Widget>[
-                  Positioned.fill(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.only(bottom: 110),
-                      itemCount: _visibleItems.length,
-                      itemBuilder: (BuildContext context, int index) {
-                        return _buildEquipmentTile(_visibleItems[index]);
-                      },
-                    ),
-                  ),
-                  Align(
-                    alignment: Alignment.bottomCenter,
-                    child: _buildBottomBar(),
-                  ),
-                ],
-              );
-            },
-          ),
+          child: _buildProductList(),
         ),
+        _buildBottomBar(),
       ],
     );
   }
 
-  // ----------------- UI WIDGETS -----------------
-
+  // 1. HEADER
   Widget _buildHeader(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
-        children: <Widget>[
-          InkWell(
-            borderRadius: BorderRadius.circular(999),
-            onTap: () {
-              if (Navigator.of(context).canPop()) Navigator.of(context).pop();
-            },
-            child: const Padding(
-              padding: EdgeInsets.all(8.0),
-              child: Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-            ),
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back_ios, size: 20),
+            onPressed: () => Navigator.pop(context),
           ),
           const Expanded(
-            child: Text(
-              'Danh sách đồ dùng',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+            child: Center(
+              child: Text(
+                'Danh sách đồ dùng',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
+              ),
             ),
           ),
-          const SizedBox(width: 44), // To balance the back button
+          const SizedBox(width: 40), // Balance spacing
         ],
       ),
     );
   }
 
-  Widget _buildCategoryTabs() {
+  // 2. CATEGORY TABS
+  Widget _buildCategoryList() {
     return SizedBox(
-      height: 40,
+      height: 36,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
         itemCount: _categories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (BuildContext context, int index) {
-          final bool selected = index == _currentCategory;
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final isSelected = index == _currentCategoryIndex;
           return GestureDetector(
-            onTap: () => setState(() => _currentCategory = index),
+            onTap: () => setState(() => _currentCategoryIndex = index),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: selected ? Colors.black : _chipBg,
-                borderRadius: BorderRadius.circular(20),
+                color: isSelected ? Colors.black : _bgGray,
+                borderRadius: BorderRadius.circular(18),
               ),
-              child: Center(
-                child: Text(
-                  _categories[index],
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: selected ? Colors.white : Colors.black87,
-                  ),
+              child: Text(
+                _categories[index],
+                style: TextStyle(
+                  color: isSelected ? Colors.white : Colors.black,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  fontSize: 14,
                 ),
               ),
             ),
@@ -287,269 +251,303 @@ class _PECContentState extends State<PECContent> {
     );
   }
 
-  Widget _buildFilterRow() {
-    return Padding(
+  // 3. FILTER BAR (Price, Sort)
+  Widget _buildFilterBar() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
-        children: <Widget>[
-          _primaryChip(
-            label: 'Xem theo giá',
-            onTap: () => setState(() {
-              _isPriceFilterVisible = !_isPriceFilterVisible;
-              if (_isPriceFilterVisible) _tempPriceRange = _priceRange;
-            }),
+        children: [
+          // Price Filter Chip (Green)
+          GestureDetector(
+            onTap: _showPriceFilterModal,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _primaryGreen,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                'Xem theo giá',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            ),
           ),
           const SizedBox(width: 8),
-          _secondaryChip(
-            label: 'Giá Thấp - Cao',
-            selected: _sortOption == _SortOption.lowToHigh,
-            onTap: () => setState(() => _sortOption = _SortOption.lowToHigh),
-          ),
+          
+          // Sort Low-High
+          _buildSortChip('Giá Thấp - Cao', _SortOption.lowToHigh),
           const SizedBox(width: 8),
-          _secondaryChip(
-            label: 'Giá Cao - Thấp',
-            selected: _sortOption == _SortOption.highToLow,
-            onTap: () => setState(() => _sortOption = _SortOption.highToLow),
-          ),
+          
+          // Sort High-Low
+          _buildSortChip('Giá Cao - Thấp', _SortOption.highToLow),
         ],
       ),
     );
   }
-  
-  Widget _buildPriceFilterCard() {
+
+  Widget _buildSortChip(String label, _SortOption option) {
+    final isSelected = _sortOption == option;
+    return GestureDetector(
+      onTap: () => setState(() => _sortOption = isSelected ? _SortOption.none : option),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? _primaryGreen.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? _primaryGreen : Colors.grey.shade300,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? _primaryGreen : _textGray,
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 4. PRODUCT LIST
+  Widget _buildProductList() {
+    if (_visibleItems.isEmpty) {
+      return const Center(child: Text("Chưa có sản phẩm nào"));
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 100), // Bottom padding for summary bar
+      itemCount: _visibleItems.length,
+      itemBuilder: (context, index) {
+        final item = _visibleItems[index];
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2))
+            ],
+          ),
+          child: Row(
+            children: [
+              // Checkbox
+              Transform.scale(
+                scale: 1.2,
+                child: Checkbox(
+                  value: item.selected,
+                  activeColor: Colors.orange,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  onChanged: (val) => setState(() => item.selected = val!),
+                ),
+              ),
+              
+              // Image
+              Container(
+                width: 70,
+                height: 70,
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.grey.shade100,
+                ),
+                child: item.imageUrl.isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(item.imageUrl, fit: BoxFit.cover),
+                      )
+                    : const Center(child: Text("IMG", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
+              ),
+
+              // Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(item.name, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _textBlack)),
+                    const SizedBox(height: 4),
+                    Text('${item.weightGrams}g', style: TextStyle(fontSize: 13, color: _textGray)),
+                    const SizedBox(height: 4),
+                    Text(_formatCurrency(item.price), style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _priceRed)),
+                  ],
+                ),
+              ),
+
+              // Vertical Quantity Counter (Matches Figma)
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  InkWell(
+                    onTap: () => setState(() => item.quantity++),
+                    child: const Padding(padding: EdgeInsets.all(4), child: Icon(Icons.add, size: 20)),
+                  ),
+                  Text(
+                    '${item.quantity}',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  InkWell(
+                    onTap: () => setState(() { if(item.quantity > 1) item.quantity--; }),
+                    child: const Padding(padding: EdgeInsets.all(4), child: Icon(Icons.remove, size: 20)),
+                  ),
+                ],
+              )
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // 5. BOTTOM SUMMARY BAR
+  Widget _buildBottomBar() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 16, offset: const Offset(0, -4))],
       ),
-      child: Column(
+      child: Row(
         children: [
-          Row(
+          // Select All
+          GestureDetector(
+            onTap: () => _toggleSelectAll(!_isAllSelected),
+            child: Row(
+              children: [
+                Transform.scale(
+                  scale: 1.2,
+                  child: Checkbox(
+                    value: _isAllSelected,
+                    activeColor: Colors.orange,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    onChanged: (val) => _toggleSelectAll(val),
+                  ),
+                ),
+                const Text("Tất cả", style: TextStyle(fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+          const Spacer(),
+
+          // Price Column
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(child: _priceDisplayBox(_formatCurrency(_tempPriceRange.start))),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8.0),
-                child: Text('-', style: TextStyle(fontSize: 18)),
-              ),
-              Expanded(child: _priceDisplayBox(_formatCurrency(_tempPriceRange.end))),
+              Text(_formatCurrency(_totalMoney), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _priceRed)),
+              //Text("Tiết kiệm ${_formatCurrency(_totalSavings)}", style: TextStyle(fontSize: 12, color: _primaryGreen, fontWeight: FontWeight.bold)),
             ],
           ),
-          const SizedBox(height: 8),
-          RangeSlider(
-            values: _tempPriceRange,
-            min: 0,
-            max: _maxPrice,
-            activeColor: _primaryGreen,
-            onChanged: (values) => setState(() => _tempPriceRange = values),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _secondaryChip(
-                  label: 'Đóng',
-                  selected: false,
-                  onTap: () => setState(() => _isPriceFilterVisible = false),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _primaryChip(
-                  label: 'Xem kết quả',
-                  onTap: () => setState(() {
-                    _priceRange = _tempPriceRange;
-                    _isPriceFilterVisible = false;
-                  }),
-                ),
-              ),
-            ],
+          const SizedBox(width: 12),
+
+          // Confirm Button
+          ElevatedButton(
+            onPressed: () {
+              // TODO: Handle final confirmation logic
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _primaryGreen,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              elevation: 0,
+            ),
+            child: const Text("Xác nhận", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           )
         ],
       ),
     );
   }
-  
-  Widget _priceDisplayBox(String text) {
+
+  // 6. PRICE FILTER MODAL
+  void _showPriceFilterModal() {
+    RangeValues tempRange = _currentPriceRange;
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            padding: const EdgeInsets.all(24),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text("Khoảng giá", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _priceBox(_formatCurrency(tempRange.start)),
+                    const Text("-", style: TextStyle(fontSize: 20, color: Colors.grey)),
+                    _priceBox(_formatCurrency(tempRange.end)),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                RangeSlider(
+                  values: tempRange,
+                  min: 0,
+                  max: _maxPriceLimit,
+                  activeColor: _primaryGreen,
+                  inactiveColor: Colors.grey.shade200,
+                  onChanged: (values) {
+                    setModalState(() => tempRange = values);
+                  },
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: const Text("Đóng", style: TextStyle(color: Colors.black)),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          setState(() => _currentPriceRange = tempRange);
+                          Navigator.pop(context);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _primaryGreen,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          elevation: 0,
+                        ),
+                        child: const Text("Xem kết quả", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                )
+              ],
+            ),
+          );
+        }
+      ),
+    );
+  }
+
+  Widget _priceBox(String text) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: _scaffoldBg,
+        color: _bgGray,
         borderRadius: BorderRadius.circular(12),
       ),
-      alignment: Alignment.center,
-      child: Text(text, style: const TextStyle(fontWeight: FontWeight.w600)),
-    );
-  }
-
-  Widget _primaryChip({required String label, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          color: _primaryGreen,
-          borderRadius: BorderRadius.circular(22),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
-        ),
-      ),
-    );
-  }
-
-  Widget _secondaryChip({required String label, required bool selected, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          color: selected ? _primaryGreen.withOpacity(0.1) : _chipBg,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: selected ? _primaryGreen : Colors.grey.shade300),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? _primaryGreen : Colors.black87,
-            fontWeight: FontWeight.w600, fontSize: 13,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEquipmentTile(_EquipmentItem item) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: <Widget>[
-          Checkbox(
-            value: item.selected,
-            onChanged: (bool? value) => setState(() => item.selected = value ?? false),
-            activeColor: Colors.orange,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-            visualDensity: VisualDensity.standard,
-          ),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Row(
-                children: <Widget>[
-                  SizedBox(
-                    width: 72,
-                    height: 72,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
-                      child: item.imageUrl.isNotEmpty
-                          ? Image.network(
-                              item.imageUrl,
-                              fit: BoxFit.cover,
-                              loadingBuilder: (context, child, progress) {
-                                if (progress == null) return child;
-                                return const Center(child: CircularProgressIndicator(strokeWidth: 2));
-                              },
-                              errorBuilder: (_, __, ___) => Container(
-                                color: Colors.grey.shade200,
-                                child: const Icon(Icons.image_not_supported_outlined, color: Colors.grey),
-                              ),
-                            )
-                          : Container(
-                              color: _primaryGreen.withOpacity(0.1),
-                              alignment: Alignment.center,
-                              child: const Text('PNG', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                            ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(item.name, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 4),
-                        Text('${item.weightGrams}g', style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
-                        const SizedBox(height: 6),
-                        Text(_formatCurrency(item.price), style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: _redPrice)),
-                      ],
-                    ),
-                  ),
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      InkWell(child: const Icon(Icons.add), onTap: () => setState(() => item.quantity++)),
-                      Text(item.quantity.toString(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                      InkWell(child: const Icon(Icons.remove), onTap: () => setState(() {
-                        if (item.quantity > 1) item.quantity--;
-                      })),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBottomBar() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(4, 12, 16, 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)],
-      ),
-      child: Row(
-        children: [
-          Checkbox(
-            value: _allSelected,
-            onChanged: _toggleSelectAll,
-            activeColor: Colors.orange,
-          ),
-          const Text('Tất cả', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-          const Spacer(),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                _formatCurrency(_totalMoney),
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _redPrice),
-              ),
-              if (_saving > 0)
-                Text(
-                  'Tiết kiệm ${_formatCurrency(_saving)}',
-                  style: TextStyle(fontSize: 13, color: _primaryGreen, fontWeight: FontWeight.w600),
-                ),
-            ],
-          ),
-          const SizedBox(width: 12),
-          ElevatedButton(
-            onPressed: () { /* TODO: Handle confirmation */ },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _primaryGreen,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-            child: const Text('Xác nhận', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-          ),
-        ],
-      ),
+      child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold)),
     );
   }
 }
