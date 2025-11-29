@@ -48,7 +48,7 @@ class _EquipmentItem {
     required this.price,
     required this.imageUrl,
     required this.weightGrams,
-    this.selected = false,
+    this.selected = false, // Default unchecked
     this.quantity = 1,
   });
 
@@ -78,7 +78,7 @@ class _PECContentState extends State<PECContent> {
 
   // --- State ---
   late Future<List<_EquipmentItem>> _itemsFuture;
-  List<_EquipmentItem> _allEquipment = [];
+  List<_EquipmentItem> _allEquipment = []; // Stores ALL items across ALL categories
   
   // Hardcoded categories to match Figma Tabs
   final List<String> _categories = <String>[
@@ -88,7 +88,7 @@ class _PECContentState extends State<PECContent> {
     'Thực phẩm',
   ];
   
-  int _currentCategoryIndex = 2; // Default to "Dụng cụ" like in Figma
+  int _currentCategoryIndex = 2; // Default to "Dụng cụ"
   _SortOption _sortOption = _SortOption.none;
   
   // Filter State
@@ -103,7 +103,6 @@ class _PECContentState extends State<PECContent> {
 
   Future<List<_EquipmentItem>> _fetchEquipment() async {
     try {
-      // Fetch all items from Supabase
       final response = await Supabase.instance.client.from('equipment').select();
       final List<_EquipmentItem> loadedItems = response
           .map<_EquipmentItem>((item) => _EquipmentItem.fromMap(item))
@@ -126,27 +125,45 @@ class _PECContentState extends State<PECContent> {
     }
   }
 
+  // --- UPDATED LOGIC 1: Total Money Calculation ---
+  // Calculate based on _allEquipment, NOT just visible items.
+  double get _totalMoney => _allEquipment.fold(0, (sum, e) => e.selected ? sum + (e.price * e.quantity) : sum);
+
+  // --- UPDATED LOGIC 2: Select All Logic ---
+  // Check if ALL items in the ENTIRE list are selected
+  bool get _isAllSelected => _allEquipment.isNotEmpty && _allEquipment.every((e) => e.selected);
+
+  // Toggle ALL items in the ENTIRE list
+  void _toggleSelectAll(bool? value) {
+    setState(() {
+      for (var item in _allEquipment) {
+        item.selected = value ?? false;
+      }
+    });
+  }
+
+  // --- Filtering Logic for Display (Keep as is, only affects what user SEES) ---
   List<_EquipmentItem> get _visibleItems {
     if (_allEquipment.isEmpty) return [];
     final String currentCat = _categories[_currentCategoryIndex];
     
-    // 1. Filter by Category & Price
+    // Filter by Category
     List<_EquipmentItem> filtered = _allEquipment.where((e) {
-      // Map backend categories (often English) to UI categories (Vietnamese)
-      // This is a simple loose match. Adjust logic if backend uses strict keys.
       bool catMatch = false;
+      // Simple string matching logic
       if (currentCat == 'Quần áo') catMatch = e.category.contains('Quần áo') || e.category.contains('Clothing');
       else if (currentCat == 'Phụ kiện') catMatch = e.category.contains('Phụ kiện') || e.category.contains('Accessories');
       else if (currentCat == 'Dụng cụ') catMatch = e.category.contains('Dụng cụ') || e.category.contains('Gear') || e.category.contains('Tools');
       else if (currentCat == 'Thực phẩm') catMatch = e.category.contains('Thực phẩm') || e.category.contains('Food');
-      else catMatch = true; // Fallback
+      else catMatch = true; 
 
+      // Filter by Price Range
       bool priceMatch = e.price >= _currentPriceRange.start && e.price <= _currentPriceRange.end;
       
       return catMatch && priceMatch;
     }).toList();
 
-    // 2. Sort
+    // Sort Logic
     if (_sortOption == _SortOption.lowToHigh) {
       filtered.sort((a, b) => a.price.compareTo(b.price));
     } else if (_sortOption == _SortOption.highToLow) {
@@ -154,18 +171,6 @@ class _PECContentState extends State<PECContent> {
     }
 
     return filtered;
-  }
-
-  double get _totalMoney => _visibleItems.fold(0, (sum, e) => e.selected ? sum + (e.price * e.quantity) : sum);
-  //double get _totalSavings => _totalMoney * 0.12; // 12% discount logic from Figma
-  bool get _isAllSelected => _visibleItems.isNotEmpty && _visibleItems.every((e) => e.selected);
-
-  void _toggleSelectAll(bool? value) {
-    setState(() {
-      for (var item in _visibleItems) {
-        item.selected = value ?? false;
-      }
-    });
   }
 
   String _formatCurrency(double value) {
@@ -185,12 +190,26 @@ class _PECContentState extends State<PECContent> {
         _buildFilterBar(),
         const SizedBox(height: 10),
         Expanded(
-          child: _buildProductList(),
+          // Use FutureBuilder to handle loading state
+          child: FutureBuilder<List<_EquipmentItem>>(
+            future: _itemsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (snapshot.hasError) {
+                return Center(child: Text("Error: ${snapshot.error}"));
+              } else {
+                return _buildProductList();
+              }
+            }
+          ),
         ),
         _buildBottomBar(),
       ],
     );
   }
+
+  // ... (Keep _buildHeader, _buildCategoryList, _buildFilterBar same as before) ...
 
   // 1. HEADER
   Widget _buildHeader(BuildContext context) {
@@ -210,7 +229,7 @@ class _PECContentState extends State<PECContent> {
               ),
             ),
           ),
-          const SizedBox(width: 40), // Balance spacing
+          const SizedBox(width: 40), 
         ],
       ),
     );
@@ -251,14 +270,13 @@ class _PECContentState extends State<PECContent> {
     );
   }
 
-  // 3. FILTER BAR (Price, Sort)
+  // 3. FILTER BAR
   Widget _buildFilterBar() {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          // Price Filter Chip (Green)
           GestureDetector(
             onTap: _showPriceFilterModal,
             child: Container(
@@ -274,12 +292,8 @@ class _PECContentState extends State<PECContent> {
             ),
           ),
           const SizedBox(width: 8),
-          
-          // Sort Low-High
           _buildSortChip('Giá Thấp - Cao', _SortOption.lowToHigh),
           const SizedBox(width: 8),
-          
-          // Sort High-Low
           _buildSortChip('Giá Cao - Thấp', _SortOption.highToLow),
         ],
       ),
@@ -295,9 +309,7 @@ class _PECContentState extends State<PECContent> {
         decoration: BoxDecoration(
           color: isSelected ? _primaryGreen.withOpacity(0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? _primaryGreen : Colors.grey.shade300,
-          ),
+          border: Border.all(color: isSelected ? _primaryGreen : Colors.grey.shade300),
         ),
         child: Text(
           label,
@@ -313,15 +325,17 @@ class _PECContentState extends State<PECContent> {
 
   // 4. PRODUCT LIST
   Widget _buildProductList() {
-    if (_visibleItems.isEmpty) {
-      return const Center(child: Text("Chưa có sản phẩm nào"));
+    final items = _visibleItems; // Get filtered list for display
+    
+    if (items.isEmpty) {
+      return const Center(child: Text("Chưa có sản phẩm nào trong mục này"));
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 100), // Bottom padding for summary bar
-      itemCount: _visibleItems.length,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 100), 
+      itemCount: items.length,
       itemBuilder: (context, index) {
-        final item = _visibleItems[index];
+        final item = items[index];
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(12),
@@ -341,7 +355,10 @@ class _PECContentState extends State<PECContent> {
                   value: item.selected,
                   activeColor: Colors.orange,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                  onChanged: (val) => setState(() => item.selected = val!),
+                  onChanged: (val) {
+                    // Changing ONE item updates the total calculation which uses _allEquipment
+                    setState(() => item.selected = val!); 
+                  },
                 ),
               ),
               
@@ -376,12 +393,12 @@ class _PECContentState extends State<PECContent> {
                 ),
               ),
 
-              // Vertical Quantity Counter (Matches Figma)
+              // Vertical Quantity Counter
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   InkWell(
-                    onTap: () => setState(() => item.quantity++),
+                    onTap: () => setState(() => item.quantity++), // Updates total
                     child: const Padding(padding: EdgeInsets.all(4), child: Icon(Icons.add, size: 20)),
                   ),
                   Text(
@@ -389,7 +406,7 @@ class _PECContentState extends State<PECContent> {
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   InkWell(
-                    onTap: () => setState(() { if(item.quantity > 1) item.quantity--; }),
+                    onTap: () => setState(() { if(item.quantity > 1) item.quantity--; }), // Updates total
                     child: const Padding(padding: EdgeInsets.all(4), child: Icon(Icons.remove, size: 20)),
                   ),
                 ],
@@ -420,7 +437,7 @@ class _PECContentState extends State<PECContent> {
                 Transform.scale(
                   scale: 1.2,
                   child: Checkbox(
-                    value: _isAllSelected,
+                    value: _isAllSelected, // Checks ALL items status
                     activeColor: Colors.orange,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                     onChanged: (val) => _toggleSelectAll(val),
@@ -437,8 +454,8 @@ class _PECContentState extends State<PECContent> {
             crossAxisAlignment: CrossAxisAlignment.end,
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Display Global Total
               Text(_formatCurrency(_totalMoney), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _priceRed)),
-              //Text("Tiết kiệm ${_formatCurrency(_totalSavings)}", style: TextStyle(fontSize: 12, color: _primaryGreen, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(width: 12),
@@ -446,7 +463,12 @@ class _PECContentState extends State<PECContent> {
           // Confirm Button
           ElevatedButton(
             onPressed: () {
-              // TODO: Handle final confirmation logic
+              // Filter ONLY selected items to save
+              final selectedItems = _allEquipment.where((e) => e.selected).toList();
+              // Use this list to save to Supabase later
+              print("Selected ${selectedItems.length} items for checkout");
+              
+              // TODO: Navigation to next screen or saving logic
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: _primaryGreen,
@@ -462,7 +484,7 @@ class _PECContentState extends State<PECContent> {
     );
   }
 
-  // 6. PRICE FILTER MODAL
+  // 6. PRICE FILTER MODAL (Keep as is)
   void _showPriceFilterModal() {
     RangeValues tempRange = _currentPriceRange;
     
