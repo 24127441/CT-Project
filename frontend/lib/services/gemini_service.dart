@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 
 class GeminiService {
   // ⚠️ THAY KEY CỦA BẠN VÀO ĐÂY
-  static const String _apiKey = 'AIzaSyAFhSGCwB4b7l4rvGpSAM75XHToJwIWA74';
+  static const String _apiKey = 'AIzaSyBt17uek8GQgJKPynrUf-FdWNjdcyGExqo';
 
   late final GenerativeModel _model;
 
@@ -121,6 +121,78 @@ class GeminiService {
       debugPrint("❌ Lỗi Gemini: $e");
       // Nếu AI lỗi (mất mạng, hết quota...), trả về 5 cung đầu tiên của danh sách gốc (Fallback)
       return allRoutes.take(5).toList();
+    }
+  }
+
+  /// Generates the PEC (Personalized Equipment Checklist)
+  /// Returns a Map where keys are Categories (String) and values are Lists of items with IDs
+  Future<Map<String, dynamic>> generateChecklist({
+    required RouteModel route, // Information about the route
+    required Map<String, dynamic> userProfile, // User info (interests, experience, etc.)
+    required List<Map<String, dynamic>> allEquipment, // The full catalog from Supabase
+  }) async {
+    // 1. Optimize Equipment Data (Send only ID, Name, Category to save tokens)
+    final catalogSummary = allEquipment.map((e) => {
+      "id": e['id'],
+      "name": e['name'],
+      "category": e['category'],
+    }).toList();
+
+    // 2. Create the Prompt
+    final prompt = '''
+      You are a trekking expert. Create a personalized packing list for this trip.
+
+      TRIP DETAILS:
+      - Location: ${route.name} (${route.location})
+      - Terrain: ${route.terrain}
+      - Duration: ${route.durationDays} days
+      - User Experience: ${userProfile['difficulty']}
+      - Group Size: ${userProfile['group_size']}
+      - Interests: ${userProfile['interests']}
+
+      AVAILABLE EQUIPMENT CATALOG (JSON):
+      ${jsonEncode(catalogSummary)}
+
+      TASK:
+      Select specific items from the catalog that are essential for this specific trip.
+      
+      RULES:
+      1. Return a JSON object where keys are the exact Category names from the catalog.
+      2. Values should be a list of objects containing:
+         - "id": The exact ID from the catalog (Int/String).
+         - "quantity": Recommended quantity (Int).
+         - "reason": A short reason in Vietnamese (String).
+      3. Do NOT invent items. Only use IDs from the catalog.
+
+      EXAMPLE OUTPUT FORMAT:
+      {
+        "Quần áo": [
+          {"id": 10, "quantity": 2, "reason": "Chống thấm vì trời mưa"}
+        ]
+      }
+    ''';
+
+    try {
+      debugPrint("🤖 Gemini: Generating checklist...");
+      final content = [Content.text(prompt)];
+      final response = await _model.generateContent(content);
+
+      if (response.text == null) return {};
+
+      // Clean Markdown if Gemini adds it (```json ... ```)
+      String cleanJson = response.text!.replaceAll(RegExp(r'^```json|```$'), '').trim();
+      
+      // 🟢 ADD THIS LINE TO SEE THE RAW JSON STRING
+      debugPrint("🔍 [GEMINI RAW OUTPUT]: $cleanJson"); 
+
+      final Map<String, dynamic> result = jsonDecode(cleanJson);
+      
+      debugPrint("🤖 Gemini: Generated ${result.length} categories.");
+      return result;
+
+    } catch (e) {
+      debugPrint("❌ Gemini Error: $e");
+      return {}; // Return empty map on failure so app doesn't crash
     }
   }
 }

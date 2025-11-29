@@ -7,6 +7,9 @@ import 'package:frontend/widgets/custom_button.dart';
 import 'package:frontend/providers/trip_provider.dart';
 import 'package:frontend/screens/PEC.dart';
 
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:frontend/services/gemini_service.dart';
+
 class InteractiveMapPage extends StatefulWidget {
   final RouteModel route;
 
@@ -21,23 +24,54 @@ class _InteractiveMapPageState extends State<InteractiveMapPage> {
 
   Future<void> _confirmRoute(BuildContext context) async {
     setState(() => _isLoading = true);
-    
     print("🔴 [InteractiveMapPage] Confirm button pressed for Route ID: ${widget.route.id}");
 
     try {
-      // 1. Get Provider
       final tripProvider = Provider.of<TripProvider>(context, listen: false);
-
-      // 2. Call the UPDATE method (Step 6 logic)
-      // This avoids creating a new duplicate plan and fixes the 400 error
-      await tripProvider.confirmRouteForPlan(widget.route.id);
       
-      print("🔴 [InteractiveMapPage] Plan updated successfully.");
+      // --- NEW STEP 1: Fetch Equipment Catalog from Supabase ---
+      // We need this to give to Gemini so it knows what IDs to pick
+      final supabase = Supabase.instance.client;
+      final equipmentResponse = await supabase.from('equipment').select('id, name, category');
+      final List<Map<String, dynamic>> equipmentList = List<Map<String, dynamic>>.from(equipmentResponse);
+
+      // --- NEW STEP 2: Prepare User Profile Data ---
+      // You might need to get this from TripProvider or pass it into this widget
+      // Assuming TripProvider has access to the current plan details
+      // For now, I will use some safe defaults or data from the route
+      final userProfile = {
+        "difficulty": "Vừa phải", // Replace with real user data if available
+        "group_size": 2,         // Replace with real user data
+        "interests": ["Cảnh đẹp", "Leo núi"], // Replace with real user data
+      };
+
+      // --- NEW STEP 3: Call Gemini to Generate JSON ---
+      final geminiService = GeminiService(); // Or use Provider/GetIt if you have dependency injection
+      
+      Map<String, dynamic> aiGeneratedChecklist = {};
+      
+      try {
+        aiGeneratedChecklist = await geminiService.generateChecklist(
+          route: widget.route,
+          userProfile: userProfile,
+          allEquipment: equipmentList,
+        );
+      } catch (aiError) {
+        print("⚠️ Gemini Error: $aiError. Proceeding with empty list.");
+        // We continue even if AI fails, passing an empty list
+      }
+
+      // --- NEW STEP 4: Update Plan in Backend ---
+      // We pass the route ID AND the generated list
+      await tripProvider.confirmRouteForPlan(
+        widget.route.id, 
+        checklist: aiGeneratedChecklist // <--- You need to update TripProvider to accept this
+      );
+      
+      print("🔴 [InteractiveMapPage] Plan updated successfully with AI Checklist.");
 
       if (!mounted) return;
 
-      // 3. Navigate to PEC Screen
-      // Use push so user can go back if needed, or pushReplacement if this is a one-way flow
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const PECScreen()),
@@ -46,18 +80,8 @@ class _InteractiveMapPageState extends State<InteractiveMapPage> {
     } catch (e) {
       print("🔴 [InteractiveMapPage] ERROR: $e");
       if (!mounted) return;
-      
-      String errorMessage = 'Lỗi kết nối server.';
-      if (e.toString().contains('Không tìm thấy ID')) {
-        errorMessage = 'Lỗi quy trình: Không tìm thấy bản nháp chuyến đi.';
-      }
-
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
+        SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);

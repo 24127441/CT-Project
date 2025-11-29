@@ -123,8 +123,8 @@ class TripProvider with ChangeNotifier {
     _tripName = data['template_name'] ?? data['name'] ?? _tripName;
     notifyListeners();
   }
-  // Trong TripProvider
 
+  // --- SAVE DRAFT PLAN (Step 1-4) ---
   Future<void> saveTripRequest() async {
     try {
       if (_tripName.isEmpty) throw Exception("Vui lòng đặt tên cho chuyến đi");
@@ -155,18 +155,25 @@ class TripProvider with ChangeNotifier {
     }
   }
 
-  Future<void> confirmRouteForPlan(int routeId) async {
+  // --- CONFIRM ROUTE & AI CHECKLIST (Step 6) ---
+  // Updated to accept the AI generated checklist
+  Future<void> confirmRouteForPlan(int routeId, {Map<String, dynamic>? checklist}) async {
     try {
       if (_currentPlanId == null) {
         throw Exception("Lỗi: Không tìm thấy ID chuyến đi. Vui lòng tạo lại.");
       }
 
-      debugPrint("🔄 Updating Plan $_currentPlanId with Route $routeId...");
+      debugPrint("🔄 Updating Plan $_currentPlanId with Route $routeId and Checklist...");
 
-      // Call Update Method
-      await _supabaseDb.updatePlanRoute(_currentPlanId!, routeId);
+      // Call Update Method on Supabase Service
+      // Ensure your SupabaseDbService.updatePlanRoute is updated to accept the checklist parameter!
+      await _supabaseDb.updatePlanRoute(
+        _currentPlanId!, 
+        routeId,
+        checklist: checklist // Pass the AI checklist here
+      );
 
-      debugPrint("✅ Plan updated with Route ID. Ready for PEC.");
+      debugPrint("✅ Plan updated with Route ID & Equipment. Ready for PEC.");
       
     } catch (e) {
       debugPrint("❌ Error confirming route: $e");
@@ -189,7 +196,6 @@ class TripProvider with ChangeNotifier {
     };
     await _supabaseDb.saveHistoryInput(name, payload);
   }
-  // Trong TripProvider.dart
 
   // Hàm này lấy dữ liệu từ các biến _searchLocation, _accommodation... (Bước 1-5)
   // Và lấy routeId từ tham số selectedRoute truyền vào
@@ -225,6 +231,7 @@ class TripProvider with ChangeNotifier {
       rethrow;
     }
   }
+
   // --- FEATURE QUAN TRỌNG NHẤT: FETCH ROUTES ---
   // Đã chuyển sang gọi Supabase trực tiếp
   Future<List<RouteModel>> fetchSuggestedRoutes() async {

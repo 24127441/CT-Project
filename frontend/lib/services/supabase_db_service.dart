@@ -98,11 +98,6 @@ class SupabaseDbService {
     await _client.from('plans').delete().eq('id', id).eq('user_id', uid);
   }
 
-  // ✅ ĐÃ SỬA: Chỉ giữ lại 1 hàm createPlan chính xác nhất
-  // Trong class SupabaseDbService
-
-  // Trong SupabaseDbService
-
   Future<Map<String, dynamic>> createPlan({
     required String name,
     int? routeId,
@@ -135,29 +130,33 @@ class SupabaseDbService {
   }
 
   // ---------------------------------------------------------------------------
-  // [START] ADD THIS NEW METHOD FOR UPDATING THE PLAN (FIX FOR INTERACTIVE MAP)
+  // [UPDATED] Update Plan Route AND Checklist
   // ---------------------------------------------------------------------------
-  Future<Map<String, dynamic>> updatePlanRoute(int planId, int routeId) async {
+  Future<Map<String, dynamic>> updatePlanRoute(int planId, int routeId, {Map<String, dynamic>? checklist}) async {
     final uid = _uid;
     if (uid == null) throw Exception('Not signed in');
 
     print("🔄 Sending PATCH update to Supabase for Plan ID: $planId with Route ID: $routeId");
 
-    // This sends a PATCH request to update ONLY the route_id of an existing plan.
-    // The backend (Django) serializer's update() method will detect this change
-    // and automatically trigger the AI logic to generate the equipment list.
+    // Prepare update payload
+    final Map<String, dynamic> updates = {
+      'route_id': routeId,
+    };
+
+    // If checklist is provided (from Gemini in Frontend), save it directly to DB
+    if (checklist != null) {
+      updates['personalized_equipment_list'] = checklist;
+    }
+
     final res = await _client
         .from('plans')
-        .update({'route_id': routeId})
+        .update(updates)
         .eq('id', planId)
         .select()
         .single();
         
     return Map<String, dynamic>.from(res);
   }
-  // ---------------------------------------------------------------------------
-  // [END] NEW METHOD
-  // ---------------------------------------------------------------------------
 
   // --- 4. HISTORY INPUTS ---
 
