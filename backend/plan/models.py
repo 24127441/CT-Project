@@ -33,12 +33,14 @@ class Plan(models.Model):
     start_date = models.DateField()
     duration_days = models.IntegerField()
     difficulty = models.TextField()
-    personal_interest = models.JSONField()
+    # DB column is `personal_interests` (jsonb)
+    personal_interests = models.JSONField(null=True, blank=True)
     # --- ---
 
     # Dữ liệu do AI/Service tạo ra [cite: 1343]
     personalized_equipment_list = models.JSONField(null=True, blank=True)
-    dangers = models.JSONField(null=True, blank=True)
+    # DB column is `dangers_snapshot` (jsonb)
+    dangers_snapshot = models.JSONField(null=True, blank=True)
 
     def __str__(self):
         return self.name
