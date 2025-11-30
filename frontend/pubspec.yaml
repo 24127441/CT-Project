@@ -10,6 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   url_launcher: ^6.2.5
+  flutter_dotenv: ^5.1.0
 
 
   dio: ^5.4.3
@@ -35,6 +36,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icon/app_icon.png
+    - .env
 
 # Configuration for flutter_launcher_icons. After adding your source
 # icon at `assets/icon/app_icon.png`, run:

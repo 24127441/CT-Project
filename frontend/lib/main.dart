@@ -8,7 +8,12 @@ import 'providers/trip_provider.dart';
 import 'core/supabase_config.dart';
 import 'services/session_lifecycle_service.dart';
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 Future<void> main() async {
+  
+  await dotenv.load(fileName: ".env");
+  
   WidgetsFlutterBinding.ensureInitialized();
 
   await Supabase.initialize(

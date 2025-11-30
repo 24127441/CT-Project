@@ -76,6 +76,7 @@ local_settings.py
 .packages
 .pub-cache/
 .pub/
+frontend/.env
 
 # Node modules 
 node_modules/

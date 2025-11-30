@@ -4,10 +4,11 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import '../features/preference_matching/models/route_model.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class GeminiService {
   // ⚠️ THAY KEY CỦA BẠN VÀO ĐÂY
-  static const String _apiKey = 'AIzaSyBsKcSciefYQ3bKErsFneCXDb5NQ24tkgg';
-
+  static final String _apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
   late final GenerativeModel _model;
 
   GeminiService() {
