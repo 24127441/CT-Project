@@ -99,6 +99,7 @@ class Plan {
   final int? id;
   final String? name;
   final String? description;
+  final String? location;
   final List<RouteModel> routes;
   final List<EquipmentItem> equipmentList;
   final Map<String, dynamic>? personalizedEquipmentList;
@@ -107,6 +108,7 @@ class Plan {
     this.id, 
     this.name, 
     this.description, 
+    this.location,
     List<RouteModel>? routes, 
     List<EquipmentItem>? equipmentList,
     this.personalizedEquipmentList,
@@ -174,6 +176,7 @@ class Plan {
       id: parseId(data['id']),
       name: data['name']?.toString(),
       description: data['note']?.toString() ?? data['description']?.toString(),
+      location: data['location']?.toString(),
       routes: parsedRoutes,
       equipmentList: parsedEquipment,
       personalizedEquipmentList: parsedMap,
@@ -184,6 +187,7 @@ class Plan {
         'id': id,
         'name': name,
         'description': description,
+        'location': location,
         'routes': routes.map((r) => r.toJson()).toList(),
         'equipmentList': equipmentList.map((e) => e.toJson()).toList(),
         'personalized_equipment_list': personalizedEquipmentList,

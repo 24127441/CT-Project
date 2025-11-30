@@ -8,6 +8,7 @@ import '../services/supabase_db_service.dart';
 import '../services/plan_service.dart';
 import '../models/plan.dart';
 import '../services/danger_labels.dart';
+import '../services/gemini_service.dart';
 
 const kBgColor = Color(0xFFF8F6F2);
 const kPrimaryGreen = Color(0xFF38C148);
@@ -23,13 +24,18 @@ class TripDashboard extends StatefulWidget {
 
 class _TripDashboardState extends State<TripDashboard> {
   final SupabaseDbService _db = SupabaseDbService();
+  final GeminiService _geminiService = GeminiService();
   late final PlanService _planService = PlanService(db: _db);
+  
   Plan? _latestPlan;
   int _activeIndex = 0;
   final PageController _pageController = PageController();
   final List<String> _notes = [];
   
   Map<String, Map<String, dynamic>> _equipmentDetails = {};
+
+  String? _aiRouteNote;
+  bool _isLoadingNote = false;
 
   @override
   void initState() {
@@ -101,6 +107,29 @@ class _TripDashboardState extends State<TripDashboard> {
     }
   }
 
+  Future<void> _generateAiNote(Plan plan) async {
+    if (plan.routes.isEmpty) return;
+    
+    final route = plan.routes.first;
+    if (route.name == null) return;
+
+    setState(() => _isLoadingNote = true);
+
+    // Check if we already have an AI note saved in the DB (optional optimization)
+    // For now, we generate it fresh as requested
+    final note = await _geminiService.generateRouteNote(
+      route.name!, 
+      plan.location // Using plan location as context
+    );
+
+    if (mounted) {
+      setState(() {
+        _aiRouteNote = note;
+        _isLoadingNote = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -118,7 +147,11 @@ class _TripDashboardState extends State<TripDashboard> {
                 controller: _pageController,
                 onPageChanged: (i) => setState(() => _activeIndex = i),
                 children: [
-                  _RouteTab(plan: _latestPlan),
+                  _RouteTab(
+                    plan: _latestPlan, 
+                    aiNote: _aiRouteNote, 
+                    isLoadingNote: _isLoadingNote
+                  ),
                   _ItemsTab(
                     plan: _latestPlan, 
                     equipmentDetails: _equipmentDetails,
@@ -184,6 +217,7 @@ class _TripDashboardState extends State<TripDashboard> {
 
       if (targetPlan != null) {
         _fetchEquipmentDetails(targetPlan);
+        _generateAiNote(targetPlan);
       }
 
       try {
@@ -794,21 +828,14 @@ class _NotesTab extends StatelessWidget {
 
 class _RouteTab extends StatelessWidget {
   final Plan? plan;
-  const _RouteTab({this.plan});
+  final String? aiNote; // Received from Dashboard state
+  final bool isLoadingNote;
+
+  const _RouteTab({this.plan, this.aiNote, this.isLoadingNote = false});
 
   @override
   Widget build(BuildContext context) {
-    // 🔍 Debugging to see what's wrong
-    if (plan != null) {
-      debugPrint("🛠️ [RouteTab] Plan Routes Count: ${plan!.routes.length}");
-      if (plan!.routes.isNotEmpty) {
-        debugPrint("🛠️ [RouteTab] First Route Name: ${plan!.routes.first.name}");
-      }
-    }
-
     final routes = plan?.routes ?? [];
-    
-    // Check if we have routes
     if (plan == null || routes.isEmpty) {
       return Center(
         child: Padding(
@@ -823,21 +850,16 @@ class _RouteTab extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.black54),
               ),
-              if (plan != null) ...[
-                const SizedBox(height: 8),
-                Text('Plan ID: ${plan!.id}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-              ]
             ],
           ),
         ),
       );
     }
 
-    // Get the first route (assuming 1 plan = 1 route)
     final r = routes.first;
 
     return ListView(
-      padding: const EdgeInsets.only(bottom: 80), // Add padding for bottom
+      padding: const EdgeInsets.only(bottom: 80),
       children: [
         // 1. Map / Image Placeholder
         Container(
@@ -854,52 +876,54 @@ class _RouteTab extends StatelessWidget {
           ),
           child: Stack(
             children: [
-              // Fallback Icon if no image
               if (r.imageUrl == null || r.imageUrl!.isEmpty)
                 const Center(child: Icon(Icons.terrain, size: 64, color: Colors.white54)),
               
-              // "Tùy chỉnh" Button Mockup
+              // 🟢 7. Repositioned Buttons (Top Corners)
+              
+              // Customize Button (Top Left)
               Positioned(
-                bottom: 16,
+                top: 16,
                 left: 16,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.black87,
+                    color: Colors.black.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white30),
                   ),
                   child: Row(
                     children: const [
                       Icon(Icons.tune, color: Colors.white, size: 16),
-                      SizedBox(width: 8),
-                      Text("Tùy chỉnh", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      SizedBox(width: 6),
+                      Text("Tùy chỉnh", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                     ],
                   ),
                 ),
               ),
               
-              // 3D Button Mockup
+              // 3D Button (Top Right)
               Positioned(
-                bottom: 16,
+                top: 16,
                 right: 16,
-                child: Column(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: Colors.white.withOpacity(0.8),
-                      child: const Icon(Icons.layers_outlined, color: Colors.black),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text("3D", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, shadows: [Shadow(blurRadius: 4, color: Colors.black)]))
-                  ],
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.9),
+                    shape: BoxShape.circle,
+                    boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                  ),
+                  child: const Icon(Icons.layers_outlined, color: Colors.black87),
                 ),
               )
             ],
           ),
         ),
 
-        // 2. Info Section (White Background)
+        // 2. Info Section
         Container(
-          transform: Matrix4.translationValues(0, -20, 0), // Pull up overlap
+          transform: Matrix4.translationValues(0, -20, 0),
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -908,14 +932,12 @@ class _RouteTab extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title
               Text(
                 r.name ?? 'Lộ trình không tên',
                 style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, height: 1.2),
               ),
               const SizedBox(height: 8),
               
-              // Stats Row
               Text(
                 '${r.distanceKm ?? 0} km • ${r.elevationGainM ?? 0} m gain • Est. ${r.durationDays ?? 1} days',
                 style: TextStyle(fontSize: 16, color: Colors.grey[700], fontWeight: FontWeight.w500),
@@ -926,7 +948,6 @@ class _RouteTab extends StatelessWidget {
               Container(
                 height: 100,
                 width: double.infinity,
-                // Simple drawing to mimic the chart
                 child: CustomPaint(
                   painter: _ChartPainter(),
                 ),
@@ -937,21 +958,38 @@ class _RouteTab extends StatelessWidget {
                 children: [
                   const Text("0.0 km", style: TextStyle(fontSize: 10, color: Colors.grey)),
                   const Text("5.0 km", style: TextStyle(fontSize: 10, color: Colors.grey)),
-                  const Text("10.0 km", style: TextStyle(fontSize: 10, color: Colors.grey)),
-                  const Text("15.0 km", style: TextStyle(fontSize: 10, color: Colors.grey)),
-                  Text("${r.distanceKm ?? 20} km", style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                  Text("${r.distanceKm ?? 10} km", style: const TextStyle(fontSize: 10, color: Colors.grey)),
                 ],
               ),
 
               const SizedBox(height: 24),
 
-              // Description / Note
-              const Text("Note", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Text(
-                r.description ?? "Chưa có mô tả cho lộ trình này.",
-                style: const TextStyle(fontSize: 15, height: 1.5, color: Colors.black87),
+              // 🟢 8. AI Note Section
+              Row(
+                children: [
+                  const Icon(Icons.auto_awesome, size: 20, color: Colors.purple),
+                  const SizedBox(width: 8),
+                  const Text("Thông tin AI gợi ý", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ],
               ),
+              const SizedBox(height: 12),
+              
+              if (isLoadingNote)
+                const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
+              else 
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.purple.withOpacity(0.1)),
+                  ),
+                  child: Text(
+                    aiNote ?? "Không có thông tin bổ sung.",
+                    style: const TextStyle(fontSize: 15, height: 1.6, color: Colors.black87),
+                  ),
+                ),
             ],
           ),
         ),
@@ -960,7 +998,6 @@ class _RouteTab extends StatelessWidget {
   }
 }
 
-// Simple Painter for the chart mockup
 class _ChartPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -971,14 +1008,12 @@ class _ChartPainter extends CustomPainter {
 
     final path = Path();
     path.moveTo(0, size.height * 0.8);
-    // Draw a random-looking mountain path
     path.quadraticBezierTo(size.width * 0.2, size.height * 0.7, size.width * 0.4, size.height * 0.5);
     path.quadraticBezierTo(size.width * 0.6, size.height * 0.8, size.width * 0.8, size.height * 0.4);
     path.quadraticBezierTo(size.width * 0.9, size.height * 0.6, size.width, size.height * 0.3);
 
     canvas.drawPath(path, paint);
     
-    // Draw fill (optional)
     final fillPath = Path.from(path);
     fillPath.lineTo(size.width, size.height);
     fillPath.lineTo(0, size.height);

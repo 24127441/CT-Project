@@ -196,4 +196,28 @@ class GeminiService {
       return {}; // Return empty map on failure so app doesn't crash
     }
   }
+
+  Future<String> generateRouteNote(String routeName, String? location) async {
+    final locStr = location != null ? "tại $location" : "";
+    
+    final prompt = '''
+      Bạn là chuyên gia du lịch mạo hiểm. Hãy viết một ghi chú ngắn gọn (khoảng 3-4 câu) về cung đường trekking: "$routeName" $locStr.
+      
+      Nội dung cần bao gồm 3 ý chính:
+      1. Địa hình chung (dốc, bằng phẳng, rừng rậm, hay núi đá...).
+      2. Thời tiết điển hình cần lưu ý.
+      3. Một lưu ý đặc biệt quan trọng cho người đi cung này.
+
+      Vui lòng trả về dưới dạng văn bản liền mạch hoặc gạch đầu dòng, giọng văn hữu ích, cảnh báo an toàn nếu cần. Không cần tiêu đề.
+    ''';
+
+    try {
+      final content = [Content.text(prompt)];
+      final response = await _model.generateContent(content);
+      return response.text ?? "Không thể tạo ghi chú AI lúc này.";
+    } catch (e) {
+      debugPrint("❌ Gemini Error (Route Note): $e");
+      return "Chưa có thông tin AI cho cung đường này.";
+    }
+  }
 }
