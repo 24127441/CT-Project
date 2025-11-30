@@ -160,16 +160,19 @@ class _PlanCard extends StatelessWidget {
     final title = plan['name'] ?? plan['title'] ?? 'Chuyến đi không tên';
     final location = plan['location'] ?? '';
     final duration = plan['duration_days'] ?? plan['duration'];
+    // 🟢 Extract Plan ID safely
+    final int? planId = (plan['id'] is int) ? plan['id'] : int.tryParse(plan['id'].toString());
 
     return GestureDetector(
       onTap: () {
-        Navigator.push(context, MaterialPageRoute(builder: (context) => const TripDashboard()));
+        // 🟢 Pass the ID to Dashboard
+        Navigator.push(context, MaterialPageRoute(builder: (context) => TripDashboard(planId: planId)));
       },
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
         child: Stack(
           children: [
-            // Gradient background matching the fast input card style.
+            // ... (Rest of the card styling remains the same) ...
             Container(
               height: 180,
               decoration: const BoxDecoration(
@@ -180,8 +183,7 @@ class _PlanCard extends StatelessWidget {
                 ),
               ),
             ),
-
-            // Content overlay
+            // ... Content ...
             Positioned.fill(
               child: Container(
                 padding: const EdgeInsets.all(20),
@@ -217,15 +219,12 @@ class _PlanCard extends StatelessWidget {
                 ),
               ),
             ),
-
-            // Action: delete
+            // ... Delete Button ...
             Positioned(
               top: 8,
               right: 8,
               child: GestureDetector(
                 onTap: () {
-                  // Call the async delete callback without awaiting here to
-                  // satisfy the GestureDetector's sync callback signature.
                   onDeleteRequested();
                 },
                 child: Container(
