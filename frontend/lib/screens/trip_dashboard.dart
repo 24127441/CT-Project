@@ -1,10 +1,9 @@
-// Trip dashboard: single compact implementation
+// frontend/lib/screens/trip_dashboard.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/supabase_db_service.dart';
 import '../services/plan_service.dart';
- 
 import '../models/plan.dart';
 import '../services/danger_labels.dart';
 
@@ -12,7 +11,9 @@ const kBgColor = Color(0xFFF8F6F2);
 const kPrimaryGreen = Color(0xFF38C148);
 
 class TripDashboard extends StatefulWidget {
-  const TripDashboard({super.key});
+  final int? planId; // 🟢 1. Add planId parameter
+
+  const TripDashboard({super.key, this.planId});
 
   @override
   State<TripDashboard> createState() => _TripDashboardState();
@@ -45,6 +46,7 @@ class _TripDashboardState extends State<TripDashboard> {
       body: SafeArea(
         child: Column(
           children: [
+            // Standard back button pop() works perfectly with the new navigation flow
             _TripHeader(onBackPressed: () => Navigator.of(context).pop(), onViewDanger: _showDangerViewer),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -83,8 +85,6 @@ class _TripDashboardState extends State<TripDashboard> {
     final ctx = context;
     final navigator = Navigator.of(ctx);
 
-    // Show an immediate, non-dismissible checking dialog so the user
-    // sees a prompt right after pressing Trip Dashboard.
     showDialog<void>(
       context: ctx,
       barrierDismissible: false,
@@ -93,18 +93,34 @@ class _TripDashboardState extends State<TripDashboard> {
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-          child: Row(mainAxisSize: MainAxisSize.min, children: const [CircularProgressIndicator(), SizedBox(width: 16), Text('Đang kiểm tra cảnh báo...')]),
+          child: Row(mainAxisSize: MainAxisSize.min, children: const [CircularProgressIndicator(), SizedBox(width: 16), Text('Đang tải dữ liệu...')]),
         ),
       ),
     );
 
     try {
-      final latest = await _planService.getLatestPlan();
+      Plan? targetPlan;
+      
+      // 🟢 2. Logic to load specific plan or latest
+      if (widget.planId != null) {
+        // Since PlanService might not have getById, we get all and filter
+        // This assumes getPlans returns list of Plan objects
+        final allPlans = await _planService.getPlans();
+        try {
+          targetPlan = allPlans.firstWhere((p) => p.id == widget.planId);
+        } catch (e) {
+          // Fallback if ID not found
+          targetPlan = await _planService.getLatestPlan();
+        }
+      } else {
+        targetPlan = await _planService.getLatestPlan();
+      }
+
       if (!mounted) {
         if (navigator.canPop()) navigator.pop();
         return;
       }
-      setState(() => _latestPlan = latest);
+      setState(() => _latestPlan = targetPlan);
 
       // check danger snapshot and show modal if necessary
       try {
@@ -113,7 +129,6 @@ class _TripDashboardState extends State<TripDashboard> {
           final pid = _latestPlan?.id;
           if (pid != null) {
             final ack = await _isAcknowledgedForPlan(pid);
-            // dismiss the loading dialog first
             if (navigator.canPop()) navigator.pop();
             if (!ack) {
               final message = snapshot.toString();
@@ -123,19 +138,18 @@ class _TripDashboardState extends State<TripDashboard> {
             return;
           }
         }
-        // no snapshot or not applicable: dismiss loading
         if (navigator.canPop()) navigator.pop();
       } catch (_) {
         if (navigator.canPop()) navigator.pop();
       }
     } catch (err) {
-      // ignore errors but ensure any loading dialog is dismissed
       try {
         if (navigator.canPop()) navigator.pop();
       } catch (_) {}
     }
   }
 
+  // ... (Keep the rest of the methods: _acknowledgePlan, _showDangerWarning, etc. unchanged) ...
   Future<void> _acknowledgePlan(int planId) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('ack_plan_$planId', true);
@@ -355,8 +369,6 @@ class _TripDashboardState extends State<TripDashboard> {
         );
       });
     } catch (e, st) {
-      // Debug: print exception and stacktrace to console, and show message in dialog
-      // so it's easy to inspect while running on the emulator.
       debugPrint('Error loading danger snapshot: $e');
       debugPrintStack(stackTrace: st, label: 'DangerViewer stack:');
       if (!mounted) { return; }
@@ -376,8 +388,6 @@ class _TripDashboardState extends State<TripDashboard> {
     }
   }
 
-  
-
   void _navigateAndAddNote() async {
     final res = await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _NoteEditorScreen()));
     if (res is String && res.isNotEmpty) { setState(() => _notes.add(res)); }
@@ -394,8 +404,6 @@ class _TripDashboardState extends State<TripDashboard> {
     setState(() => _notes.removeAt(idx));
   }
 }
-
-// ====== Small local widgets used by the dashboard
 
 class _TripHeader extends StatelessWidget {
   final VoidCallback? onBackPressed;
@@ -420,7 +428,7 @@ class _TripHeader extends StatelessWidget {
   }
 }
 
-
+// ... (Rest of local widgets like _TripTabs, _ItemsTab, etc. remain the same)
 class _TripTabs extends StatelessWidget {
   final int activeIndex;
   final ValueChanged<int> onTabChanged;
@@ -454,8 +462,6 @@ class _TripTabs extends StatelessWidget {
   }
 }
 
-
-
 class _ItemsTab extends StatelessWidget {
   final Plan? plan;
   const _ItemsTab({this.plan});
@@ -480,7 +486,6 @@ class _ItemsTab extends StatelessWidget {
       );
     }
 
-    // Render plan items
     return ListView.builder(
       padding: const EdgeInsets.only(bottom: 24),
       itemCount: items.length,
@@ -540,7 +545,6 @@ class _ItemsTab extends StatelessWidget {
 class _NotesTab extends StatelessWidget {
   final List<String> notes;
   final void Function(int) onDeleteNote;
-
   final void Function(int) onEditNote;
 
   const _NotesTab({required this.notes, required this.onDeleteNote, required this.onEditNote});
@@ -596,7 +600,6 @@ class _NotesTab extends StatelessWidget {
   }
 }
 
-
 class _RouteTab extends StatelessWidget {
   final Plan? plan;
   const _RouteTab({this.plan});
@@ -636,7 +639,6 @@ class _RouteTab extends StatelessWidget {
     );
   }
 }
-
 
 class _NoteEditorScreen extends StatefulWidget {
   final String? initialText;

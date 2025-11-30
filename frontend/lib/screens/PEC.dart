@@ -7,6 +7,8 @@ import 'package:frontend/providers/trip_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:frontend/screens/trip_dashboard.dart';
 
+import 'package:frontend/screens/trip_list.dart';
+
 class PECScreen extends StatelessWidget {
   final int? planId;
 
@@ -319,10 +321,15 @@ class _PECContentState extends State<PECContent> {
           backgroundColor: Colors.green,
         ));
 
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const TripDashboard()),
-          (Route<dynamic> route) => route.isFirst, // Go back to Home first or keep stack clean
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const TripListView()),
+          (Route<dynamic> route) => route.isFirst, // This keeps Home Page at the very bottom
+        );
+
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => TripDashboard(planId: effectivePlanId),
+          ),
         );
       }
     } catch (e) {
