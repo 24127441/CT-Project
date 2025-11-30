@@ -1,7 +1,9 @@
-// frontend/lib/screens/trip_dashboard.dart
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart'; 
 import '../services/supabase_db_service.dart';
 import '../services/plan_service.dart';
 import '../models/plan.dart';
@@ -11,7 +13,7 @@ const kBgColor = Color(0xFFF8F6F2);
 const kPrimaryGreen = Color(0xFF38C148);
 
 class TripDashboard extends StatefulWidget {
-  final int? planId; // 🟢 1. Add planId parameter
+  final int? planId;
 
   const TripDashboard({super.key, this.planId});
 
@@ -26,6 +28,8 @@ class _TripDashboardState extends State<TripDashboard> {
   int _activeIndex = 0;
   final PageController _pageController = PageController();
   final List<String> _notes = [];
+  
+  Map<String, Map<String, dynamic>> _equipmentDetails = {};
 
   @override
   void initState() {
@@ -39,6 +43,64 @@ class _TripDashboardState extends State<TripDashboard> {
     super.dispose();
   }
 
+  Future<void> _launchBuyLink(String itemName, String? dbLink) async {
+    final Uri url;
+    if (dbLink != null && dbLink.isNotEmpty) {
+      url = Uri.parse(dbLink);
+    } else {
+      final query = Uri.encodeComponent(itemName);
+      url = Uri.parse('https://shopee.vn/search?keyword=$query');
+    }
+    try {
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        throw 'Could not launch $url';
+      }
+    } catch (e) {
+      debugPrint("Error launching URL: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Không thể mở liên kết mua hàng")),
+        );
+      }
+    }
+  }
+
+  Future<void> _fetchEquipmentDetails(Plan plan) async {
+    final eqMap = plan.personalizedEquipmentList;
+    if (eqMap == null || eqMap.isEmpty) return;
+
+    final Set<String> ids = {};
+    eqMap.forEach((key, value) {
+      if (value is List) {
+        for (var item in value) {
+          if (item['id'] != null) ids.add(item['id'].toString());
+        }
+      }
+    });
+
+    if (ids.isEmpty) return;
+
+    try {
+      final response = await Supabase.instance.client
+          .from('equipment')
+          .select('id, image_url, buy_link')
+          .inFilter('id', ids.toList());
+
+      final Map<String, Map<String, dynamic>> details = {};
+      for (var row in response) {
+        details[row['id'].toString()] = row;
+      }
+
+      if (mounted) {
+        setState(() {
+          _equipmentDetails = details;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching equipment details: $e");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -46,7 +108,6 @@ class _TripDashboardState extends State<TripDashboard> {
       body: SafeArea(
         child: Column(
           children: [
-            // Standard back button pop() works perfectly with the new navigation flow
             _TripHeader(onBackPressed: () => Navigator.of(context).pop(), onViewDanger: _showDangerViewer),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -58,7 +119,11 @@ class _TripDashboardState extends State<TripDashboard> {
                 onPageChanged: (i) => setState(() => _activeIndex = i),
                 children: [
                   _RouteTab(plan: _latestPlan),
-                  _ItemsTab(plan: _latestPlan),
+                  _ItemsTab(
+                    plan: _latestPlan, 
+                    equipmentDetails: _equipmentDetails,
+                    onBuyPressed: _launchBuyLink,
+                  ),
                   _NotesTab(notes: _notes, onDeleteNote: _deleteNote, onEditNote: _editNote),
                 ],
               ),
@@ -100,16 +165,11 @@ class _TripDashboardState extends State<TripDashboard> {
 
     try {
       Plan? targetPlan;
-      
-      // 🟢 2. Logic to load specific plan or latest
       if (widget.planId != null) {
-        // Since PlanService might not have getById, we get all and filter
-        // This assumes getPlans returns list of Plan objects
         final allPlans = await _planService.getPlans();
         try {
           targetPlan = allPlans.firstWhere((p) => p.id == widget.planId);
         } catch (e) {
-          // Fallback if ID not found
           targetPlan = await _planService.getLatestPlan();
         }
       } else {
@@ -122,7 +182,10 @@ class _TripDashboardState extends State<TripDashboard> {
       }
       setState(() => _latestPlan = targetPlan);
 
-      // check danger snapshot and show modal if necessary
+      if (targetPlan != null) {
+        _fetchEquipmentDetails(targetPlan);
+      }
+
       try {
         final snapshot = await _db.getLatestDangerSnapshot();
         if (snapshot != null) {
@@ -149,7 +212,6 @@ class _TripDashboardState extends State<TripDashboard> {
     }
   }
 
-  // ... (Keep the rest of the methods: _acknowledgePlan, _showDangerWarning, etc. unchanged) ...
   Future<void> _acknowledgePlan(int planId) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('ack_plan_$planId', true);
@@ -160,7 +222,6 @@ class _TripDashboardState extends State<TripDashboard> {
     return prefs.getBool('ack_plan_$planId') ?? false;
   }
 
-  // Per-danger acknowledgement (per plan)
   String _dangerStorageKey(int planId, String dangerKey) {
     final safe = dangerKey.replaceAll(RegExp(r"[^a-zA-Z0-9_]"), '_');
     return 'ack_plan_${planId}_danger_$safe';
@@ -267,7 +328,6 @@ class _TripDashboardState extends State<TripDashboard> {
       final snapshot = await _db.getLatestDangerSnapshot();
       final message = _formatDangerValue(snapshot);
       final pid = _latestPlan?.id;
-      // Build danger entries list (key + value) so we can show multiple dangers
       final List<MapEntry<String, dynamic>> entries = [];
       if (snapshot is Map) {
         final Map snapMap = snapshot as Map;
@@ -280,11 +340,9 @@ class _TripDashboardState extends State<TripDashboard> {
           entries.add(MapEntry(i.toString(), snapList[i]));
         }
       } else if (snapshot != null) {
-        // snapshot might be a plain string or other scalar
         entries.add(MapEntry('message', snapshot));
       }
 
-      // Preload ack status for each danger (if we have a plan id)
       final Map<String, bool> ackMap = {};
       if (pid != null) {
         for (final e in entries) {
@@ -316,7 +374,6 @@ class _TripDashboardState extends State<TripDashboard> {
                     child: Column(mainAxisSize: MainAxisSize.min, children: [
                       Center(child: Text('Chi tiết cảnh báo', textAlign: TextAlign.center, style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.w900, fontSize: 20))),
                       const SizedBox(height: 8),
-                      // Danger list
                       if (entries.isEmpty) ...[
                         Align(alignment: Alignment.centerLeft, child: Text(message, style: const TextStyle(fontStyle: FontStyle.italic, height: 1.35, color: Colors.black87))),
                       ] else ...[
@@ -370,7 +427,6 @@ class _TripDashboardState extends State<TripDashboard> {
       });
     } catch (e, st) {
       debugPrint('Error loading danger snapshot: $e');
-      debugPrintStack(stackTrace: st, label: 'DangerViewer stack:');
       if (!mounted) { return; }
       SchedulerBinding.instance.addPostFrameCallback((_) {
         if (!mounted) { return; }
@@ -428,7 +484,6 @@ class _TripHeader extends StatelessWidget {
   }
 }
 
-// ... (Rest of local widgets like _TripTabs, _ItemsTab, etc. remain the same)
 class _TripTabs extends StatelessWidget {
   final int activeIndex;
   final ValueChanged<int> onTabChanged;
@@ -464,80 +519,217 @@ class _TripTabs extends StatelessWidget {
 
 class _ItemsTab extends StatelessWidget {
   final Plan? plan;
-  const _ItemsTab({this.plan});
+  final Map<String, Map<String, dynamic>> equipmentDetails;
+  final Function(String, String?) onBuyPressed;
+
+  const _ItemsTab({
+    this.plan, 
+    required this.equipmentDetails,
+    required this.onBuyPressed,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final items = plan?.equipmentList ?? [];
+    final equipmentMap = plan?.personalizedEquipmentList ?? {};
 
-    if (items.isEmpty) {
+    if (equipmentMap.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: const [
-              Icon(Icons.shopping_bag_outlined, size: 48, color: Colors.black38),
+              Icon(Icons.checklist_rtl_rounded, size: 64, color: Colors.black12),
               SizedBox(height: 12),
-              Text('Chưa có vật dụng trong kế hoạch này.', style: TextStyle(fontSize: 16, color: Colors.black54)),
+              Text(
+                'Chưa có danh sách vật dụng.',
+                style: TextStyle(fontSize: 16, color: Colors.black54),
+                textAlign: TextAlign.center,
+              ),
             ],
           ),
         ),
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 24),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        final name = item.name;
-        final source = item.store ?? '';
-        final price = item.price ?? '';
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 80, top: 10),
+      children: equipmentMap.entries.map((entry) {
+        String category = entry.key;
+        List<dynamic> items = entry.value is List ? entry.value : [];
 
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
+        if (items.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 4, height: 18, 
+                    decoration: BoxDecoration(color: kPrimaryGreen, borderRadius: BorderRadius.circular(2)),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    category.toUpperCase(),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black54, letterSpacing: 1.0),
+                  ),
+                ],
+              ),
+            ),
+            ...items.map((item) => _buildSingleItem(item)),
+            const SizedBox(height: 8),
+          ],
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildSingleItem(dynamic itemData) {
+    final Map<String, dynamic> item = Map<String, dynamic>.from(itemData);
+    final String name = item['name'] ?? 'Vật dụng';
+    final int quantity = item['quantity'] ?? 1;
+    final String? reason = item['reason'];
+    final id = item['id'].toString();
+    
+    String? imageUrl;
+    String? buyLink;
+    if (equipmentDetails.containsKey(id)) {
+      imageUrl = equipmentDetails[id]?['image_url'];
+      buyLink = equipmentDetails[id]?['buy_link'];
+    }
+
+    final priceRaw = item['price'];
+    String priceStr = '';
+    if (priceRaw != null) {
+       priceStr = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ', decimalDigits: 0).format(priceRaw);
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 70,
-                height: 80,
+                width: 60,
+                height: 60,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE9FBE4),
-                  borderRadius: BorderRadius.circular(8),
+                  color: const Color(0xFFF2F4F7),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                alignment: Alignment.center,
-                child: const Text('PNG', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18)),
+                child: imageUrl != null && imageUrl.isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(imageUrl, fit: BoxFit.cover),
+                      )
+                    : const Icon(Icons.hiking, color: Colors.grey),
               ),
               const SizedBox(width: 16),
+              
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(name.toString(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 4),
-                    Text(source.toString(), style: const TextStyle(fontSize: 15)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            name,
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.shade300)
+                          ),
+                          child: Text("x$quantity", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        )
+                      ],
+                    ),
+                    
+                    if (priceStr.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(priceStr, style: const TextStyle(fontSize: 14, color: Colors.redAccent, fontWeight: FontWeight.w600)),
+                    ],
+
                     const SizedBox(height: 8),
-                    Text(price.isNotEmpty ? price.toString() : '—', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.redAccent)),
+                    InkWell(
+                      onTap: () => onBuyPressed(name, buyLink),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.orange.withOpacity(0.5)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.shopping_cart_outlined, size: 14, color: Colors.deepOrange),
+                            const SizedBox(width: 4),
+                            Text(
+                              "Mua ngay", 
+                              style: TextStyle(fontSize: 11, color: Colors.deepOrange, fontWeight: FontWeight.bold)
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
-              Column(
-                children: [
-                  IconButton(onPressed: () {}, icon: const Icon(Icons.add)),
-                  const Text('1', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                  IconButton(onPressed: () {}, icon: const Icon(Icons.remove)),
-                ],
-              )
             ],
           ),
-        );
-      },
+
+          if (reason != null && reason.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF8E1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFFE082)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.auto_awesome, size: 16, color: Colors.orange),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      reason,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.brown.shade700,
+                        fontStyle: FontStyle.italic,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ]
+        ],
+      ),
     );
   }
 }
@@ -606,38 +798,201 @@ class _RouteTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final routes = plan?.routes ?? [];
-    if (plan == null) {
-      return const Center(child: Text('Không có kế hoạch nào để xem trước.'));
-    }
-    if (routes.isEmpty) {
-      return const Center(child: Text('Không có lộ trình được lưu trong kế hoạch này.'));
+    // 🔍 Debugging to see what's wrong
+    if (plan != null) {
+      debugPrint("🛠️ [RouteTab] Plan Routes Count: ${plan!.routes.length}");
+      if (plan!.routes.isNotEmpty) {
+        debugPrint("🛠️ [RouteTab] First Route Name: ${plan!.routes.first.name}");
+      }
     }
 
-    final r = routes.first;
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        if (r.imageUrl != null && r.imageUrl!.isNotEmpty)
-          Container(
-            height: 180,
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), color: Colors.grey[200]),
-            clipBehavior: Clip.hardEdge,
-            child: Image.network(r.imageUrl!, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.photo))),
+    final routes = plan?.routes ?? [];
+    
+    // Check if we have routes
+    if (plan == null || routes.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.map_outlined, size: 48, color: Colors.grey),
+              const SizedBox(height: 12),
+              const Text(
+                'Không tìm thấy thông tin lộ trình.\nCó thể bạn chưa chọn lộ trình cho kế hoạch này.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.black54),
+              ),
+              if (plan != null) ...[
+                const SizedBox(height: 8),
+                Text('Plan ID: ${plan!.id}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+              ]
+            ],
           ),
-        const SizedBox(height: 12),
-        Text(r.name ?? 'Lộ trình không tên', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 8),
-        Wrap(spacing: 12, runSpacing: 8, children: [
-          if (r.distanceKm != null) Chip(label: Text('${r.distanceKm} km')),
-          if (r.elevationGainM != null) Chip(label: Text('${r.elevationGainM} m độ cao')),
-          if (r.durationDays != null) Chip(label: Text('${r.durationDays} ngày')),
-        ]),
-        const SizedBox(height: 12),
-        if (plan?.description != null && plan!.description!.isNotEmpty) Text(plan!.description!),
+        ),
+      );
+    }
+
+    // Get the first route (assuming 1 plan = 1 route)
+    final r = routes.first;
+
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 80), // Add padding for bottom
+      children: [
+        // 1. Map / Image Placeholder
+        Container(
+          height: 250,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.grey[300],
+            image: r.imageUrl != null && r.imageUrl!.isNotEmpty
+                ? DecorationImage(
+                    image: NetworkImage(r.imageUrl!),
+                    fit: BoxFit.cover,
+                  )
+                : null,
+          ),
+          child: Stack(
+            children: [
+              // Fallback Icon if no image
+              if (r.imageUrl == null || r.imageUrl!.isEmpty)
+                const Center(child: Icon(Icons.terrain, size: 64, color: Colors.white54)),
+              
+              // "Tùy chỉnh" Button Mockup
+              Positioned(
+                bottom: 16,
+                left: 16,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.tune, color: Colors.white, size: 16),
+                      SizedBox(width: 8),
+                      Text("Tùy chỉnh", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ),
+              
+              // 3D Button Mockup
+              Positioned(
+                bottom: 16,
+                right: 16,
+                child: Column(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: Colors.white.withOpacity(0.8),
+                      child: const Icon(Icons.layers_outlined, color: Colors.black),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text("3D", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, shadows: [Shadow(blurRadius: 4, color: Colors.black)]))
+                  ],
+                ),
+              )
+            ],
+          ),
+        ),
+
+        // 2. Info Section (White Background)
+        Container(
+          transform: Matrix4.translationValues(0, -20, 0), // Pull up overlap
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Title
+              Text(
+                r.name ?? 'Lộ trình không tên',
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, height: 1.2),
+              ),
+              const SizedBox(height: 8),
+              
+              // Stats Row
+              Text(
+                '${r.distanceKm ?? 0} km • ${r.elevationGainM ?? 0} m gain • Est. ${r.durationDays ?? 1} days',
+                style: TextStyle(fontSize: 16, color: Colors.grey[700], fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 24),
+
+              // Elevation Chart Placeholder
+              Container(
+                height: 100,
+                width: double.infinity,
+                // Simple drawing to mimic the chart
+                child: CustomPaint(
+                  painter: _ChartPainter(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text("0.0 km", style: TextStyle(fontSize: 10, color: Colors.grey)),
+                  const Text("5.0 km", style: TextStyle(fontSize: 10, color: Colors.grey)),
+                  const Text("10.0 km", style: TextStyle(fontSize: 10, color: Colors.grey)),
+                  const Text("15.0 km", style: TextStyle(fontSize: 10, color: Colors.grey)),
+                  Text("${r.distanceKm ?? 20} km", style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // Description / Note
+              const Text("Note", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text(
+                r.description ?? "Chưa có mô tả cho lộ trình này.",
+                style: const TextStyle(fontSize: 15, height: 1.5, color: Colors.black87),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
+}
+
+// Simple Painter for the chart mockup
+class _ChartPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.black87
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    final path = Path();
+    path.moveTo(0, size.height * 0.8);
+    // Draw a random-looking mountain path
+    path.quadraticBezierTo(size.width * 0.2, size.height * 0.7, size.width * 0.4, size.height * 0.5);
+    path.quadraticBezierTo(size.width * 0.6, size.height * 0.8, size.width * 0.8, size.height * 0.4);
+    path.quadraticBezierTo(size.width * 0.9, size.height * 0.6, size.width, size.height * 0.3);
+
+    canvas.drawPath(path, paint);
+    
+    // Draw fill (optional)
+    final fillPath = Path.from(path);
+    fillPath.lineTo(size.width, size.height);
+    fillPath.lineTo(0, size.height);
+    fillPath.close();
+    
+    final fillPaint = Paint()
+      ..color = Colors.grey.withOpacity(0.1)
+      ..style = PaintingStyle.fill;
+      
+    canvas.drawPath(fillPath, fillPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _NoteEditorScreen extends StatefulWidget {
