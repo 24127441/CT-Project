@@ -11,6 +11,7 @@ import 'package:flutter_map/flutter_map.dart' as fmap;
 import 'package:latlong2/latlong.dart' as fcoords;
 
 import 'package:provider/provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:frontend/features/preference_matching/models/route_model.dart';
 import 'package:frontend/utils/app_colors.dart';
@@ -41,8 +42,13 @@ class _InteractiveMapPageState extends State<InteractiveMapPage> {
   // Trạng thái: True = Hiện Map 3D, False = Hiện Map 2D
   bool _is3DMode = false; // Mặc định vào là 2D (Esri)
 
-  // Key MapTiler (Dùng cho 3D)
-  final String _apiKey = "ZWKZtjZ8Q3WhJsAhQvxU ";
+  // MapTiler key: prefer --dart-define, else flutter_dotenv
+  final String _apiKey = (() {
+    const fromDefine = String.fromEnvironment('MAPTILER_KEY');
+    if (fromDefine.isNotEmpty) return fromDefine;
+    return dotenv.env['MAPTILER_KEY'] ?? 'your_maptiler_key_here';
+  })();
+
   String get _style3DUrl => "https://api.maptiler.com/maps/outdoor-v2/style.json?key=$_apiKey";
 
   List<FlSpot> _elevationSpots = [];

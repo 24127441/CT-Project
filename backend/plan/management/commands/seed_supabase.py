@@ -1,3 +1,4 @@
+import os
 import time
 import random
 from django.core.management.base import BaseCommand
@@ -7,8 +8,9 @@ from supabase import create_client, Client
 # ==============================================================================
 # CẤU HÌNH SUPABASE (GIỮ NGUYÊN KEY CỦA BẠN)
 # ==============================================================================
-SUPABASE_URL = "https://qesmaldvlbfznrkrzdhc.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFlc21hbGR2bGJmem5ya3J6ZGhjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MzcyMDc4MSwiZXhwIjoyMDc5Mjk2NzgxfQ.Y4imE0GdoKHhGgcqQMFbjexsXxXgBt5Pi9iF2ikbF3c"
+SUPABASE_URL = os.getenv('SUPABASE_URL', 'https://your-project-id.supabase.co')
+# Prefer a server-side service role key when seeding. Fall back to SUPABASE_KEY if set.
+SUPABASE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY') or os.getenv('SUPABASE_KEY') or os.getenv('SUPABASE_ANON_KEY')
 
 class Command(BaseCommand):
     help = 'Cào ảnh và nạp 36 cung đường trekking (Có thêm tag Homestay/Camping)'

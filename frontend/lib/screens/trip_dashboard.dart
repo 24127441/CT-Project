@@ -9,6 +9,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 // --- CÁC SERVICE CỦA BẠN ---
 import '../services/supabase_db_service.dart';
 import '../services/plan_service.dart';
@@ -810,8 +812,13 @@ class _RouteTabState extends State<_RouteTab> with AutomaticKeepAliveClientMixin
   bool _is3DMode = false;
   bool _isMapLoading = true;
 
-  // Key MapTiler
-  final String _apiKey = "ZWKZtjZ8Q3WhJsAhQvxU";
+  // MapTiler API key: prefer --dart-define, else flutter_dotenv
+  final String _apiKey = (() {
+    const fromDefine = String.fromEnvironment('MAPTILER_KEY');
+    if (fromDefine.isNotEmpty) return fromDefine;
+    return dotenv.env['MAPTILER_KEY'] ?? 'your_maptiler_key_here';
+  })();
+
   String get _style3DUrl => "https://api.maptiler.com/maps/outdoor-v2/style.json?key=$_apiKey";
 
   // Dữ liệu

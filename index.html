@@ -80,10 +80,16 @@
 
     <script>
         // ============================================================
-        // CẤU HÌNH KẾT NỐI (Đã điền sẵn của bạn)
+        // Runtime environment for web (inject `env.js` at deploy time)
+        // - Recommended: generate a small `env.js` that sets `window.__ENV`.
+        //   Example `env.js` content:
+        //     window.__ENV = { SUPABASE_URL: 'https://...', SUPABASE_ANON_KEY: '...' };
+        // - If not injected, fallback to the placeholders below (replace before use).
         // ============================================================
-        const SUPABASE_URL = 'https://qesmaldvlbfznrkrzdhc.supabase.co'; 
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFlc21hbGR2bGJmem5ya3J6ZGhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3MjA3ODEsImV4cCI6MjA3OTI5Njc4MX0.bMDQmD99x7CdFTOfakCkHqQQsWcac5sc4awO6hMXfRQ';
+        const ENV = window.__ENV || {};
+        const SUPABASE_URL = ENV.SUPABASE_URL || 'https://your-project-id.supabase.co';
+        // Accept either `SUPABASE_ANON_KEY` or `SUPABASE_KEY` for older files
+        const SUPABASE_KEY = ENV.SUPABASE_ANON_KEY || ENV.SUPABASE_KEY || 'your_supabase_anon_key_here';
 
         // Khởi tạo client (Dùng tên 'dbClient' để tránh trùng lặp)
         const dbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
