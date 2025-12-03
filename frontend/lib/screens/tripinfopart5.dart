@@ -169,41 +169,14 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
             // 3. Nút "Xác nhận" (Màu xanh) - CHỈ CHUYỂN TRANG
             Expanded(
               child: ElevatedButton(
-                onPressed: () async {
-                  // 1. Hiện vòng tròn Loading để người dùng chờ
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (ctx) => const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
-                    ),
-                  );
-
-                  try {
-                    // 2. Gọi hàm lưu dữ liệu vào Supabase (Hàm mới viết ở Provider)
-                    // Dùng context.read để gọi hàm 1 lần
-                    await context.read<TripProvider>().saveTripRequest();
-
-                    if (!context.mounted) return;
-
-                    // 3. Tắt Loading
-                    Navigator.of(context).pop();
-
-                    // 4. Chuyển sang màn hình chờ (WaitingScreen)
+                  onPressed: () async {
+                    // Start the preference-matching flow without saving a draft here.
+                    // The plan will be created when the user confirms a route.
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) => const WaitingScreen()),
                     );
-
-                  } catch (e) {
-                    if (!context.mounted) return;
-
-                    // Tắt Loading nếu gặp lỗi
-                    Navigator.of(context).pop();
-                    // Hiện thông báo lỗi cho người dùng biết
-                    NotificationService.showError('Lỗi lưu thông tin: $e');
-                  }
-                },
+                  },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryGreen, // Đảm bảo biến primaryGreen đã được import/khai báo
                   padding: const EdgeInsets.symmetric(vertical: 16),

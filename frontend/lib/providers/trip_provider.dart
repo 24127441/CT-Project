@@ -59,8 +59,24 @@ class TripProvider with ChangeNotifier {
   void setTripName(String value) { _tripName = value; notifyListeners(); }
 
   void setTripDates(DateTime start, DateTime end) {
-    _startDate = DateTime(start.year, start.month, start.day);
-    _endDate = DateTime(end.year, end.month, end.day);
+    // Normalize to date-only
+    DateTime startDateOnly = DateTime(start.year, start.month, start.day);
+    DateTime endDateOnly = DateTime(end.year, end.month, end.day);
+
+    // Prevent start dates in the past (use local date)
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    if (startDateOnly.isBefore(today)) {
+      AppLogger.d('TripProvider', 'Requested start date in past; clamping to today');
+      startDateOnly = today;
+      // Ensure end is not before start
+      if (endDateOnly.isBefore(startDateOnly)) {
+        endDateOnly = startDateOnly;
+      }
+    }
+
+    _startDate = startDateOnly;
+    _endDate = endDateOnly;
     notifyListeners();
   }
 
@@ -163,18 +179,40 @@ class TripProvider with ChangeNotifier {
   // Updated to accept the AI generated checklist
   Future<void> confirmRouteForPlan(int routeId, {Map<String, dynamic>? checklist}) async {
     try {
+      AppLogger.d('TripProvider', 'Confirming route for plan. routeId=$routeId, currentPlanId=$_currentPlanId');
+
+      // If we don't have a draft plan on the server yet, create one now attaching the selected route.
       if (_currentPlanId == null) {
-        throw Exception("Lỗi: Không tìm thấy ID chuyến đi. Vui lòng tạo lại.");
+        // Create plan with routeId filled
+        final resp = await _supabaseDb.createPlan(
+          name: _tripName,
+          routeId: routeId,
+          location: _searchLocation,
+          restType: _accommodation ?? 'Không xác định',
+          groupSize: parsedGroupSize,
+          startDate: _startDate?.toIso8601String().split('T').first ?? DateTime.now().toIso8601String().split('T').first,
+          durationDays: durationDays,
+          difficulty: _difficultyLevel ?? 'Vừa phải',
+          personalInterests: _selectedInterests,
+        );
+
+        if (resp['id'] != null) {
+          _currentPlanId = resp['id'];
+          AppLogger.d('TripProvider', 'Created plan with route. ID=$_currentPlanId');
+        }
+      } else {
+        // Update existing draft to set route and optionally checklist
+        await _supabaseDb.updatePlanRoute(
+          _currentPlanId!,
+          routeId,
+          checklist: checklist,
+        );
       }
-      AppLogger.d('TripProvider', 'Plan updated with Route ID $routeId');
-      
-      // Call Update Method on Supabase Service
-      // Ensure your SupabaseDbService.updatePlanRoute is updated to accept the checklist parameter!
-      await _supabaseDb.updatePlanRoute(
-        _currentPlanId!, 
-        routeId,
-        checklist: checklist // Pass the AI checklist here
-      );
+
+      // If checklist provided and we just created the plan, ensure checklist is attached
+      if (checklist != null && _currentPlanId != null) {
+        await _supabaseDb.updatePlanRoute(_currentPlanId!, routeId, checklist: checklist);
+      }
 
       
     } catch (e) {
@@ -229,6 +267,24 @@ class TripProvider with ChangeNotifier {
 
     } catch (e) {
       AppLogger.e('TripProvider', 'Lỗi Provider createPlan: ${e.toString()}');
+      rethrow;
+    }
+  }
+
+  /// Cancel the draft plan if it was previously created on the server.
+  /// This is useful when no route was found and the user chooses to go back.
+  Future<void> cancelDraftPlan() async {
+    try {
+      if (_currentPlanId != null) {
+        final id = _currentPlanId!;
+        await _supabaseDb.deletePlan(id);
+        AppLogger.d('TripProvider', 'Cancelled draft plan id=$id');
+        _currentPlanId = null;
+      }
+      // Reset local state so the user can start fresh
+      resetTrip();
+    } catch (e) {
+      AppLogger.e('TripProvider', 'Failed to cancel draft plan: ${e.toString()}');
       rethrow;
     }
   }

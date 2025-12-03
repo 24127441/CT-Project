@@ -354,6 +354,11 @@ class _TripDashboardState extends State<TripDashboard> {
       await prefs.setBool(k, true);
     } else {
       await prefs.remove(k);
+      // If the user clears a per-danger acknowledgement, also clear the
+      // global plan acknowledgement so the warning dialog can reappear.
+      try {
+        await prefs.remove('ack_plan_$planId');
+      } catch (_) {}
     }
   }
 

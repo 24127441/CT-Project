@@ -173,16 +173,62 @@ class _PlanCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         child: Stack(
           children: [
-            // ... (Rest of the card styling remains the same) ...
+            // Background: try to show the route image (from joined `routes` relation)
             Container(
               height: 180,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF425E3C), Color(0xFF2E7D32)],
-                ),
-              ),
+              color: const Color(0xFF425E3C),
+              child: Builder(builder: (ctx) {
+                // Attempt to read nested route object
+                final routeObj = plan['routes'];
+                String? imageUrl;
+                if (routeObj is Map) {
+                  // Try a few possible field names
+                  if (routeObj['gallery_image_urls'] is List && (routeObj['gallery_image_urls'] as List).isNotEmpty) {
+                    final g = routeObj['gallery_image_urls'] as List;
+                    imageUrl = g.first?.toString();
+                  }
+                  imageUrl ??= routeObj['image_url']?.toString();
+                  imageUrl ??= routeObj['imageUrl']?.toString();
+                  imageUrl ??= routeObj['image']?.toString();
+                }
+
+                if (imageUrl != null && imageUrl.isNotEmpty) {
+                  return ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: Image.network(
+                      imageUrl,
+                      height: 180,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (c, e, st) {
+                        // Fallback to gradient when image fails
+                        return Container(
+                          height: 180,
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [Color(0xFF425E3C), Color(0xFF2E7D32)],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                }
+
+                // Default fallback: gradient background (keeps previous look)
+                return Container(
+                  height: 180,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF425E3C), Color(0xFF2E7D32)],
+                    ),
+                  ),
+                );
+              }),
             ),
             // ... Content ...
             Positioned.fill(

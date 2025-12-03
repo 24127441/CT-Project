@@ -22,10 +22,8 @@ Future<void> main() async {
     anonKey: supabaseAnonKey,
   );
 
-  // Lấy kết quả xem có phải Cold Start không?
-  // isColdStart = true nghĩa là vừa tắt app bật lại -> Phải về Welcome
+  // Lấy kết quả xem có phải Cold Start không? (vẫn lấy để logging)
   final bool isColdStart = await SessionLifecycleService.checkIsColdStart();
-
   runApp(
     MultiProvider(
       providers: [
@@ -45,22 +43,18 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Lấy session hiện tại (có thể vẫn còn cache trong RAM dù đã signOut)
+    // 1. Lấy session hiện tại (Supabase client caches sessions)
     final session = Supabase.instance.client.auth.currentSession;
 
-    
-
-    // 2. LOGIC QUYẾT ĐỊNH MÀN HÌNH KHỞI ĐỘNG (QUAN TRỌNG)
+    // 2. LOGIC QUYẾT ĐỊNH MÀN HÌNH KHỞI ĐỘNG
+    // Prefer an existing session: if we have a valid session, go to Home regardless
+    // of whether this is a cold start (this preserves login across abrupt closes).
     Widget startScreen;
-
-    if (isColdStart) {
-      // Nếu là Cold Start -> BẮT BUỘC về Welcome (kệ session nói gì)
-      startScreen = const WelcomeView();
-    } else if (session != null) {
-      // Nếu không phải Cold Start (Hot restart) VÀ có session -> Vào Home
+    if (session != null) {
       startScreen = const HomePage();
+    } else if (isColdStart) {
+      startScreen = const WelcomeView();
     } else {
-      // Còn lại -> Welcome
       startScreen = const WelcomeView();
     }
 
