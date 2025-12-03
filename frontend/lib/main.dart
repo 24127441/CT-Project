@@ -47,14 +47,16 @@ class MyApp extends StatelessWidget {
     final session = Supabase.instance.client.auth.currentSession;
 
     // 2. LOGIC QUYẾT ĐỊNH MÀN HÌNH KHỞI ĐỘNG
-    // Prefer an existing session: if we have a valid session, go to Home regardless
-    // of whether this is a cold start (this preserves login across abrupt closes).
+    // On a cold start enforce logout (show Welcome). Otherwise, if a session
+    // exists go to Home, else show Welcome.
     Widget startScreen;
-    if (session != null) {
-      startScreen = const HomePage();
-    } else if (isColdStart) {
+    if (isColdStart) {
       startScreen = const WelcomeView();
-    } else {
+    }
+    else if (session != null) {
+      startScreen = const HomePage();
+    }
+    else {
       startScreen = const WelcomeView();
     }
 
