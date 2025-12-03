@@ -228,4 +228,20 @@ class SupabaseDbService {
     final res = await _client.from('history_inputs').insert(insertPayload).select().single();
     return Map<String, dynamic>.from(res);
   }
+
+  // --- 5. DANGERS ---
+
+  /// Fetch a single plan by id (includes fields like start_date, duration_days, location)
+  Future<Map<String, dynamic>?> getPlanById(int planId) async {
+    final uid = _uid;
+    if (uid == null) return null;
+    final resp = await _client.from('plans').select().eq('id', planId).maybeSingle();
+    if (resp == null) return null;
+    return Map<String, dynamic>.from(resp);
+  }
+
+  /// Save a dangers snapshot (arbitrary JSON) into the plan's `dangers_snapshot` field
+  Future<void> saveDangerSnapshotForPlan(int planId, Map<String, dynamic> snapshot) async {
+    await _client.from('plans').update({'dangers_snapshot': snapshot}).eq('id', planId);
+  }
 }

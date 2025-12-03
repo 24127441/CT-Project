@@ -10,6 +10,11 @@ const Map<String, String> dangerKeyLabels = {
   'poor_visibility': 'Tầm nhìn kém',
   'bridge_out': 'Cầu hỏng',
   'toxic_plants': 'Thực vật độc',
+  // Weather-generated keys
+  'heavy_rain': 'Mưa lớn',
+  'strong_wind': 'Gió mạnh',
+  'extreme_heat': 'Nhiệt độ cực cao',
+  'extreme_cold': 'Nhiệt độ cực thấp',
 };
 
 String dangerLabelForKey(String key) {

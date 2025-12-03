@@ -226,15 +226,26 @@ class _PECContentState extends State<PECContent> {
   double get _totalMoney => _allEquipment.fold(0, (sum, e) => e.selected ? sum + (e.price * e.quantity) : sum);
 
   bool get _isAllSelected {
-    final visible = _visibleItems;
-    if (visible.isEmpty) return false;
-    return visible.every((e) => e.selected);
+    // Consider 'all categories' selection: treat 'all selected' as all items
+    // that are currently eligible (have aiReason and pass price filter) are selected.
+    final eligible = _allEquipment.where((e) {
+      if (e.aiReason == null) return false;
+      if (e.price < _currentPriceRange.start || e.price > _currentPriceRange.end) return false;
+      return true;
+    }).toList();
+    if (eligible.isEmpty) return false;
+    return eligible.every((e) => e.selected);
   }
 
   void _toggleSelectAll(bool? value) {
     setState(() {
-      for (var item in _visibleItems) {
-        item.selected = value ?? false;
+      final v = value ?? false;
+      // Toggle selection across ALL categories, but respect other global filters
+      // (only items recommended by AI and within the current price range).
+      for (var item in _allEquipment) {
+        if (item.aiReason == null) continue;
+        if (item.price < _currentPriceRange.start || item.price > _currentPriceRange.end) continue;
+        item.selected = v;
       }
     });
   }

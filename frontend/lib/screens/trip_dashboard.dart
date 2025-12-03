@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'dart:math';
 import 'dart:ui' as ui;
 import 'dart:typed_data';
@@ -8,6 +10,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -130,14 +133,42 @@ class _TripDashboardState extends State<TripDashboard> {
 
     setState(() => _isLoadingNote = true);
 
-    final note = await _geminiService.generateRouteNote(
+    final raw = await _geminiService.generateRouteNote(
         route.name!,
         plan.location
     );
 
+    String display = raw ?? '';
+    // Defensive: AI service may return structured JSON (e.g. { "note": "..." })
+    try {
+      if (display.trim().startsWith('{') || display.trim().startsWith('[')) {
+        final decoded = jsonDecode(display);
+        if (decoded is Map) {
+          if (decoded.containsKey('note') && decoded['note'] is String) {
+            display = decoded['note'] as String;
+          } else if (decoded.containsKey('text') && decoded['text'] is String) {
+            display = decoded['text'] as String;
+          } else if (decoded.containsKey('content') && decoded['content'] is String) {
+            display = decoded['content'] as String;
+          } else {
+            // Try to find first string value
+            final firstStr = decoded.values.firstWhere((v) => v is String, orElse: () => null);
+            if (firstStr is String) display = firstStr;
+            else display = decoded.toString();
+          }
+        } else if (decoded is List && decoded.isNotEmpty) {
+          // join list items into readable text
+          display = decoded.map((e) => e.toString()).join('\n');
+        }
+      }
+    } catch (e) {
+      // ignore JSON parse errors and use raw string
+      debugPrint('AI note parse error: $e');
+    }
+
     if (mounted) {
       setState(() {
-        _aiRouteNote = note;
+        _aiRouteNote = display.trim();
         _isLoadingNote = false;
       });
     }
@@ -236,6 +267,12 @@ class _TripDashboardState extends State<TripDashboard> {
 
       if (targetPlan != null) {
         _fetchEquipmentDetails(targetPlan);
+        // Check weather and possibly save dangers snapshot
+        try {
+          await _checkWeatherAndSave(targetPlan);
+        } catch (e) {
+          debugPrint('Weather check failed: $e');
+        }
         _generateAiNote(targetPlan);
       }
 
@@ -245,7 +282,7 @@ class _TripDashboardState extends State<TripDashboard> {
         if (snapshot != null) {
           final pid = _latestPlan?.id;
           if (pid != null) {
-            final ack = await _isAcknowledgedForPlan(pid);
+            final ack = await _isAcknowledgedForPlanWithSnapshot(pid, snapshot);
             if (navigator.canPop()) navigator.pop();
             if (!ack) {
               final message = snapshot.toString();
@@ -274,6 +311,37 @@ class _TripDashboardState extends State<TripDashboard> {
   Future<bool> _isAcknowledgedForPlan(int planId) async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('ack_plan_$planId') ?? false;
+  }
+
+  Future<bool> _isAcknowledgedForPlanWithSnapshot(int planId, dynamic snapshot) async {
+    final prefs = await SharedPreferences.getInstance();
+    // If the global plan ack exists, treat as acknowledged
+    if (prefs.getBool('ack_plan_$planId') == true) return true;
+
+    // If snapshot is empty/null then not acknowledged
+    if (snapshot == null) return false;
+
+    // If snapshot is a map, ensure every danger key has been acknowledged
+    if (snapshot is Map) {
+      for (final k in snapshot.keys) {
+        final key = _dangerStorageKey(planId, k.toString());
+        if (prefs.getBool(key) != true) return false;
+      }
+      return true;
+    }
+
+    // If snapshot is a list, check each index key
+    if (snapshot is List) {
+      for (var i = 0; i < snapshot.length; i++) {
+        final key = _dangerStorageKey(planId, i.toString());
+        if (prefs.getBool(key) != true) return false;
+      }
+      return true;
+    }
+
+    // For other snapshot types, use a generic 'message' key
+    final key = _dangerStorageKey(planId, 'message');
+    return prefs.getBool(key) == true;
   }
 
   String _dangerStorageKey(int planId, String dangerKey) {
@@ -498,6 +566,98 @@ class _TripDashboardState extends State<TripDashboard> {
     }
   }
 
+  Future<void> _checkWeatherAndSave(Plan plan) async {
+    final loc = plan.location;
+    if (loc == null || loc.trim().isEmpty) return;
+
+    double? lat;
+    double? lon;
+    try {
+      final geocodeUrl = Uri.parse('https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(loc)}&format=json&limit=1');
+      final geores = await http.get(geocodeUrl, headers: {'User-Agent': 'CT-Project-App'});
+      if (geores.statusCode == 200) {
+        final decoded = jsonDecode(geores.body) as List<dynamic>?;
+        if (decoded != null && decoded.isNotEmpty) {
+          final first = decoded.first as Map<String, dynamic>;
+          lat = double.tryParse(first['lat']?.toString() ?? '');
+          lon = double.tryParse(first['lon']?.toString() ?? '');
+        }
+      }
+    } catch (e) {
+      debugPrint('Geocoding failed: $e');
+    }
+
+    if (lat == null || lon == null) return;
+
+    int? planId = plan.id;
+    DateTime? startDate;
+    int durationDays = 1;
+    if (planId != null) {
+      final planRow = await _db.getPlanById(planId);
+      if (planRow != null) {
+        try { final sd = planRow['start_date']?.toString(); if (sd != null && sd.isNotEmpty) startDate = DateTime.tryParse(sd); } catch (_) {}
+        try { final d = planRow['duration_days']; if (d is int) durationDays = d; else if (d is String) durationDays = int.tryParse(d) ?? durationDays; } catch (_) {}
+      }
+    }
+    if (startDate == null) startDate = DateTime.now().toUtc();
+    final endDate = startDate.add(Duration(days: durationDays));
+
+    final startStr = '${startDate.toIso8601String().split('T').first}';
+    final endStr = '${endDate.toIso8601String().split('T').first}';
+
+    final weatherUrl = Uri.parse('https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max&timezone=UTC&start_date=$startStr&end_date=$endStr');
+
+    Map<String, dynamic>? weatherJson;
+    try {
+      final wres = await http.get(weatherUrl);
+      if (wres.statusCode == 200) weatherJson = jsonDecode(wres.body) as Map<String, dynamic>?;
+    } catch (e) {
+      debugPrint('Weather fetch failed: $e');
+    }
+    if (weatherJson == null) return;
+
+    final Map<String, dynamic> snapshot = {};
+    try {
+      final daily = weatherJson['daily'] as Map<String, dynamic>?;
+      if (daily != null) {
+        final tempsMax = List<dynamic>.from(daily['temperature_2m_max'] ?? []);
+        final tempsMin = List<dynamic>.from(daily['temperature_2m_min'] ?? []);
+        final precSum = List<dynamic>.from(daily['precipitation_sum'] ?? []);
+        final windMax = List<dynamic>.from(daily['windspeed_10m_max'] ?? []);
+
+        bool heavyRain = precSum.any((v) => (v ?? 0) is num && (v as num) > 20);
+        bool strongWind = windMax.any((v) => (v ?? 0) is num && (v as num) > 15);
+        bool extremeHeat = tempsMax.any((v) => (v ?? 0) is num && (v as num) > 40);
+        bool extremeCold = tempsMin.any((v) => (v ?? 0) is num && (v as num) < -10);
+
+        if (heavyRain) snapshot['heavy_rain'] = true;
+        if (strongWind) snapshot['strong_wind'] = true;
+        if (extremeHeat) snapshot['extreme_heat'] = true;
+        if (extremeCold) snapshot['extreme_cold'] = true;
+
+        if (snapshot.isNotEmpty) {
+          snapshot['source'] = 'open-meteo';
+          snapshot['latitude'] = lat;
+          snapshot['longitude'] = lon;
+          snapshot['start_date'] = startStr;
+          snapshot['end_date'] = endStr;
+          snapshot['raw'] = daily;
+        }
+      }
+    } catch (e) {
+      debugPrint('Weather analysis error: $e');
+    }
+
+    if (snapshot.isNotEmpty && planId != null) {
+      try {
+        await _db.saveDangerSnapshotForPlan(planId, snapshot);
+        debugPrint('Saved danger snapshot for plan $planId');
+      } catch (e) {
+        debugPrint('Failed to save danger snapshot: $e');
+      }
+    }
+  }
+
   void _navigateAndAddNote() async {
     final res = await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _NoteEditorScreen()));
     if (res is String && res.isNotEmpty) { setState(() => _notes.add(res)); }
@@ -571,7 +731,7 @@ class _TripTabs extends StatelessWidget {
   }
 }
 
-class _ItemsTab extends StatelessWidget {
+class _ItemsTab extends StatefulWidget {
   final Plan? plan;
   final Map<String, Map<String, dynamic>> equipmentDetails;
   final Function(String, String?) onBuyPressed;
@@ -583,8 +743,60 @@ class _ItemsTab extends StatelessWidget {
   });
 
   @override
+  State<_ItemsTab> createState() => _ItemsTabState();
+}
+
+class _ItemsTabState extends State<_ItemsTab> {
+  final Set<String> _checked = {};
+  bool _loadingLocal = true;
+
+  String? get _planKey => widget.plan?.id != null ? 'local_checklist_plan_${widget.plan!.id}' : null;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLocalChecklist();
+  }
+
+  Future<void> _loadLocalChecklist() async {
+    final key = _planKey;
+    if (key == null) {
+      setState(() => _loadingLocal = false);
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList(key) ?? [];
+    setState(() {
+      _checked.addAll(list);
+      _loadingLocal = false;
+    });
+  }
+
+  Future<void> _saveLocalChecklist() async {
+    final key = _planKey;
+    if (key == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(key, _checked.toList());
+  }
+
+  void _toggleItemChecked(String id, bool? value) {
+    setState(() {
+      if (value == true) _checked.add(id); else _checked.remove(id);
+    });
+    _saveLocalChecklist();
+  }
+
+  void _clearLocalChecklist() async {
+    final key = _planKey;
+    if (key == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(key);
+    setState(() => _checked.clear());
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final equipmentMap = plan?.personalizedEquipmentList ?? {};
+    final equipmentMap = widget.plan?.personalizedEquipmentList ?? {};
 
     if (equipmentMap.isEmpty) {
       return Center(
@@ -606,38 +818,49 @@ class _ItemsTab extends StatelessWidget {
       );
     }
 
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 80, top: 10),
-      children: equipmentMap.entries.map((entry) {
-        String category = entry.key;
-        List<dynamic> items = entry.value is List ? entry.value : [];
+    final entries = equipmentMap.entries.toList();
+    return Expanded(
+      child: ListView(
+        padding: const EdgeInsets.only(bottom: 80, top: 0),
+        children: entries.asMap().entries.map((mapEntry) {
+          final idx = mapEntry.key;
+          final entry = mapEntry.value;
+          String category = entry.key;
+          List<dynamic> items = entry.value is List ? entry.value : [];
 
-        if (items.isEmpty) return const SizedBox.shrink();
+          if (items.isEmpty) return const SizedBox.shrink();
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              child: Row(
-                children: [
-                  Container(
-                    width: 4, height: 18,
-                    decoration: BoxDecoration(color: kPrimaryGreen, borderRadius: BorderRadius.circular(2)),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    category.toUpperCase(),
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black54, letterSpacing: 1.0),
-                  ),
-                ],
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 4, height: 18,
+                      decoration: BoxDecoration(color: kPrimaryGreen, borderRadius: BorderRadius.circular(2)),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        category.toUpperCase(),
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black54, letterSpacing: 1.0),
+                      ),
+                    ),
+                    if (idx == 0) ...[
+                      if (_loadingLocal) const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2)),
+                      TextButton(onPressed: _clearLocalChecklist, child: const Text('Xóa đánh dấu')),
+                    ]
+                  ],
+                ),
               ),
-            ),
-            ...items.map((item) => _buildSingleItem(item)),
-            const SizedBox(height: 8),
-          ],
-        );
-      }).toList(),
+              ...items.map((item) => _buildSingleItem(item)),
+              const SizedBox(height: 8),
+            ],
+          );
+        }).toList(),
+      ),
     );
   }
 
@@ -650,9 +873,9 @@ class _ItemsTab extends StatelessWidget {
 
     String? imageUrl;
     String? buyLink;
-    if (equipmentDetails.containsKey(id)) {
-      imageUrl = equipmentDetails[id]?['image_url'];
-      buyLink = equipmentDetails[id]?['buy_link'];
+    if (widget.equipmentDetails.containsKey(id)) {
+      imageUrl = widget.equipmentDetails[id]?['image_url'];
+      buyLink = widget.equipmentDetails[id]?['buy_link'];
     }
 
     final priceRaw = item['price'];
@@ -676,6 +899,14 @@ class _ItemsTab extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Local checklist checkbox
+              Padding(
+                padding: const EdgeInsets.only(top: 2.0, right: 8.0),
+                child: Checkbox(
+                  value: _checked.contains(id),
+                  onChanged: (v) => _toggleItemChecked(id, v),
+                ),
+              ),
               Container(
                 width: 60,
                 height: 60,
@@ -690,7 +921,7 @@ class _ItemsTab extends StatelessWidget {
                 )
                     : const Icon(Icons.hiking, color: Colors.grey),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 8),
 
               Expanded(
                 child: Column(
@@ -725,7 +956,7 @@ class _ItemsTab extends StatelessWidget {
 
                     const SizedBox(height: 8),
                     InkWell(
-                      onTap: () => onBuyPressed(name, buyLink),
+                      onTap: () => widget.onBuyPressed(name, buyLink),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
