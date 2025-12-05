@@ -52,6 +52,14 @@ class SupabaseDbService {
     return Map<String, dynamic>.from(res);
   }
 
+  /// Delete a plan by id (only if it belongs to current user)
+  Future<void> deletePlan(int id) async {
+    final uid = _uid;
+    if (uid == null) throw Exception('Not signed in');
+
+    await _client.from('plans').delete().eq('id', id).eq('user_id', uid);
+  }
+
   /// Fetch history input templates for current user.
   Future<List<Map<String, dynamic>>> getHistoryInputs() async {
     final uid = _uid;

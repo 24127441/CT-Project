@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/screens/setting.dart';
 import 'tripinfopart1.dart';
-import 'fast_input.dart';
+import 'fast_input.dart' as fast_input;
 import 'trip_list.dart' as trip_list;
 
 class HomePage extends StatefulWidget {
@@ -324,7 +324,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                   context,
                                   MaterialPageRoute(
                                     builder: (_) =>
-                                    const FastInputListView(),
+                                        const fast_input.TripListView(),
                                   ),
                                 );
                               },
@@ -336,7 +336,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                   context,
                                   MaterialPageRoute(
                                     builder: (_) =>
-                                        trip_list.TripListView(),
+                                        const trip_list.TripListView(),
                                   ),
                                 );
                               },
@@ -391,7 +391,7 @@ class _PlanCard extends StatelessWidget {
                 // phần trắng trên: icon + text
                 Padding(
                   padding:
-                  const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                      const EdgeInsets.fromLTRB(16, 16, 16, 12),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
