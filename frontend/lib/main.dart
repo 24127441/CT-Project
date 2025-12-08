@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'screens/welcome_view.dart';
 import 'screens/home_screen.dart';
 import 'providers/trip_provider.dart';
+import 'providers/achievement_provider.dart';
 import 'core/supabase_config.dart';
 import 'services/session_lifecycle_service.dart';
 
@@ -28,6 +29,7 @@ Future<void> main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => TripProvider()),
+        ChangeNotifierProvider(create: (_) => AchievementProvider()..loadFromStorage()),
       ],
       // Truyền cờ isColdStart vào MyApp
       child: MyApp(isColdStart: isColdStart),
@@ -47,18 +49,10 @@ class MyApp extends StatelessWidget {
     final session = Supabase.instance.client.auth.currentSession;
 
     // 2. LOGIC QUYẾT ĐỊNH MÀN HÌNH KHỞI ĐỘNG
-    // On a cold start enforce logout (show Welcome). Otherwise, if a session
-    // exists go to Home, else show Welcome.
-    Widget startScreen;
-    if (isColdStart) {
-      startScreen = const WelcomeView();
-    }
-    else if (session != null) {
-      startScreen = const HomePage();
-    }
-    else {
-      startScreen = const WelcomeView();
-    }
+    // Ưu tiên giữ nguyên session nếu còn hợp lệ để tránh quay lại màn Welcome không cần thiết
+    final startScreen = session != null
+        ? const HomePage()
+        : const WelcomeView();
 
     return MaterialApp(
       scaffoldMessengerKey: NotificationService.messengerKey,

@@ -20,6 +20,7 @@ import 'package:frontend/providers/trip_provider.dart';
 import 'package:frontend/screens/pec.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:frontend/utils/notification.dart';
+import 'package:frontend/providers/achievement_provider.dart';
 
 class InteractiveMapPage extends StatefulWidget {
   final RouteModel route;
@@ -353,8 +354,9 @@ class _InteractiveMapPageState extends State<InteractiveMapPage> {
     setState(() => _isLoading = true);
     final BuildContext ctx = context;
     final navigator = Navigator.of(ctx);
+    final tripProvider = Provider.of<TripProvider>(ctx, listen: false);
+    final achievementProvider = Provider.of<AchievementProvider>(ctx, listen: false);
     try {
-      final tripProvider = Provider.of<TripProvider>(context, listen: false);
       final supabase = Supabase.instance.client;
 
       // 1. Lấy danh sách thiết bị
@@ -390,6 +392,9 @@ class _InteractiveMapPageState extends State<InteractiveMapPage> {
           widget.route.id,
           checklist: aiGeneratedChecklist
       );
+
+      // 5. Cập nhật thành tích theo địa điểm
+      await achievementProvider.incrementLocationVisit(widget.route.location);
 
       if (!mounted) return;
       // Notify user then navigate
