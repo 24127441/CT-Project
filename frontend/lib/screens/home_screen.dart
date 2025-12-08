@@ -118,14 +118,26 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ],
                             ),
+                            // ... các import và code phía trên
+
+// Tìm đến đoạn này (khoảng dòng 121):
                             GestureDetector(
-                              onTap: () {
-                                Navigator.push(
+                              onTap: () async { // 1. Thêm từ khóa async
+                                // 2. Thêm await trước Navigator.push
+                                await Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) => const ProfileScreen(),
                                   ),
                                 );
+
+                                // 3. Sau khi quay lại từ ProfileScreen, gọi setState để load lại tên mới
+                                if (mounted) {
+                                  setState(() {
+                                    // Hàm này rỗng cũng được, mục đích là để kích hoạt lại hàm build()
+                                    // Hàm build() sẽ chạy lại dòng: final userName = currentUser?.userMetadata?['full_name']
+                                  });
+                                }
                               },
                               child: Container(
                                 decoration: BoxDecoration(
