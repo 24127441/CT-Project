@@ -215,6 +215,20 @@ class SupabaseDbService {
     return res != null;
   }
 
+  Future<bool> checkPlanNameExists(String name) async {
+    final uid = _uid;
+    if (uid == null) return false;
+    
+    final res = await _client
+        .from('plans')
+        .select('id')
+        .eq('user_id', uid)
+        .eq('name', name)
+        .maybeSingle();
+    
+    return res != null;
+  }
+
   Future<Map<String, dynamic>> saveHistoryInput(String name, Map<String, dynamic> payload) async {
     final uid = _uid;
     if (uid == null) throw Exception('Not signed in');

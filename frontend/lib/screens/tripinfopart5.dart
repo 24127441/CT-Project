@@ -1,3 +1,4 @@
+// ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 // debugPrint is provided by material.dart; no separate foundation import needed
@@ -43,17 +44,11 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
-            // Use simple pop to return to the previous screen instead of
-            // replacing the whole navigation stack. This avoids accidental
-            // navigation to the welcome screen in edge cases.
-            if (Navigator.canPop(context)) {
-              Navigator.pop(context);
-            } else {
-              Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const HomePage()));
-            }
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const HomePage()));
           },
         ),
         title: const Column(
@@ -206,15 +201,56 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
               child: ElevatedButton(
                   onPressed: () async {
                     try {
+                      final isMounted = mounted;
+                      
+                      // Validate trip name is not empty
+                      final tripProvider = Provider.of<TripProvider>(context, listen: false);
+                      if (tripProvider.tripName.isEmpty) {
+                        if (isMounted) NotificationService.showError('Vui lòng đặt tên cho chuyến đi');
+                        return;
+                      }
+
+                      // Check if plan name already exists
+                      final supabaseDb = SupabaseDbService();
+                      final exists = await supabaseDb.checkPlanNameExists(tripProvider.tripName);
+                      
+                      if (exists) {
+                        if (!isMounted) return;
+                        // Show warning dialog
+                        final shouldContinue = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Tên chuyến đi đã tồn tại'),
+                            content: const Text('Bạn có muốn tạo chuyến đi khác với tên này không?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(false),
+                                child: const Text('Hủy'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(true),
+                                child: const Text('Tiếp tục tạo'),
+                              ),
+                            ],
+                          ),
+                        );
+                        
+                        // If user cancels or closes dialog, don't proceed
+                        if (shouldContinue != true) return;
+                      }
+
+                      // Capture mounted before async gap
+                      final isMountedAfterDialogs = mounted;
+                      
                       // Start the preference-matching flow without saving a draft here.
                       // The plan will be created when the user confirms a route.
-                      if (!mounted) return;
+                      if (!isMountedAfterDialogs) return;
                       await Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => const WaitingScreen()),
                       );
                     } catch (e) {
-                      if (context.mounted) NotificationService.showError('Không thể bắt đầu tìm lộ trình: $e');
+                      if (mounted) NotificationService.showError('Không thể bắt đầu tìm lộ trình: $e');
                     }
                   },
                 style: ElevatedButton.styleFrom(

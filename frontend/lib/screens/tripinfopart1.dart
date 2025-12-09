@@ -15,15 +15,11 @@ class TripInfoScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
-            // Hủy wizard, quay về Home
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (context) => const HomePage()),
-                  (route) => false,
-            );
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const HomePage()));
           },
         ),
         title: const Column(

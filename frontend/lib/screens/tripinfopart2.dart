@@ -87,16 +87,11 @@ class _TripTimeScreenState extends State<TripTimeScreen> {
 
       // --- APP BAR ---
       appBar: AppBar(
-        // Nút Hủy về Home
+        automaticallyImplyLeading: false,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
-            context.read<TripProvider>().resetTrip();
-            Navigator.of(context).pushAndRemoveUntil(
-              // ✅ Dùng đúng HomePage
-              MaterialPageRoute(builder: (context) => const HomePage()),
-                  (Route<dynamic> route) => false,
-            );
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const HomePage()));
           },
         ),
         title: const Column(

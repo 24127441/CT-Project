@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/trip_provider.dart';
-import '../features/home/screen/home_view.dart';
+import 'home_screen.dart';
 import 'tripinfopart4.dart';
 
 class TripLevelScreen extends StatelessWidget {
@@ -16,15 +16,11 @@ class TripLevelScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        // Nút Hủy về Home
+        automaticallyImplyLeading: false,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
-            context.read<TripProvider>().resetTrip();
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => const HomeView()),
-                  (Route<dynamic> route) => false,
-            );
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const HomePage()));
           },
         ),
         title: const Column(
@@ -63,7 +59,7 @@ class TripLevelScreen extends StatelessWidget {
               color: Colors.red,
               isSelected: tripData.difficultyLevel == 'Chuyên nghiệp',
               onTap: () => context.read<TripProvider>().setDifficultyLevel('Chuyên nghiệp'),
-            ),
+            ),  
 
             const SizedBox(height: 20),
 
