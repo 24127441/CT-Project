@@ -201,6 +201,20 @@ class SupabaseDbService {
     await _client.from('history_inputs').delete().eq('id', id).eq('user_id', uid);
   }
 
+  Future<bool> checkHistoryInputNameExists(String name) async {
+    final uid = _uid;
+    if (uid == null) return false;
+    
+    final res = await _client
+        .from('history_inputs')
+        .select('id')
+        .eq('user_id', uid)
+        .eq('template_name', name)
+        .maybeSingle();
+    
+    return res != null;
+  }
+
   Future<Map<String, dynamic>> saveHistoryInput(String name, Map<String, dynamic> payload) async {
     final uid = _uid;
     if (uid == null) throw Exception('Not signed in');

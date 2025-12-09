@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:frontend/utils/notification.dart';
 import '../providers/trip_provider.dart';
+import '../services/supabase_db_service.dart';
 import '../screens/home_screen.dart';
 import 'trip_info_waiting_screen.dart';
 
@@ -140,11 +141,42 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
                     // Lấy tên từ ô nhập liệu
                     String tName = _tripNameController.text.isEmpty ? "Mẫu mới" : _tripNameController.text;
 
+                    // Check if template name already exists
+                    final supabaseDb = SupabaseDbService();
+                    final exists = await supabaseDb.checkHistoryInputNameExists(tName);
+                    
+                    if (exists && context.mounted) {
+                      // Show warning dialog
+                      final shouldOverwrite = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Tên mẫu đã tồn tại'),
+                          content: Text('Mẫu "$tName" đã tồn tại. Bạn có muốn tạo mẫu khác với tên này không?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(ctx).pop(false),
+                              child: const Text('Hủy'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.of(ctx).pop(true),
+                              child: const Text('Tiếp tục lưu'),
+                            ),
+                          ],
+                        ),
+                      );
+                      
+                      if (shouldOverwrite != true) return;
+                    }
+
                     // Hiện thông báo đang xử lý
-                    NotificationService.showInfo('Đang lưu mẫu...', duration: const Duration(milliseconds: 800));
+                    if (context.mounted) {
+                      NotificationService.showInfo('Đang lưu mẫu...', duration: const Duration(milliseconds: 800));
+                    }
 
                     // GỌI PROVIDER (Logic đúng đã fix)
-                    await context.read<TripProvider>().saveHistoryInput(tName);
+                    if (context.mounted) {
+                      await context.read<TripProvider>().saveHistoryInput(tName);
+                    }
 
                     // Thông báo thành công
                     if (context.mounted) {

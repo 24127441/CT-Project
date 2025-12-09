@@ -225,23 +225,14 @@ class TripProvider with ChangeNotifier {
       throw Exception("Vui lòng điền đầy đủ thông tin trước khi lưu.");
     }
     
-    // Validate that start date is not in the past
-    if (_startDate != null) {
-      final now = DateTime.now();
-      final startDateOnly = DateTime(_startDate!.year, _startDate!.month, _startDate!.day);
-      final todayOnly = DateTime(now.year, now.month, now.day);
-      
-      if (startDateOnly.isBefore(todayOnly)) {
-        throw Exception("Ngày bắt đầu không được là ngày trong quá khứ. Vui lòng chọn ngày từ hôm nay trở đi.");
-      }
-    }
+    // Don't validate start date for history input - leave it blank
     
     final payload = {
       'location': _searchLocation,
       'rest_type': _accommodation,
       'group_size': parsedGroupSize,
-      'start_date': _startDate?.toIso8601String().split('T').first,
-      'duration_days': durationDays,
+      'start_date': null,  // Leave start_date blank for history input
+      'duration_days': null,  // Leave duration_days blank for history input
       'difficulty': _difficultyLevel,
       'personal_interests': _selectedInterests,
     };
