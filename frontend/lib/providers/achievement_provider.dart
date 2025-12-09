@@ -1,12 +1,9 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/achievement.dart';
 
 class AchievementProvider with ChangeNotifier {
-  static const _prefsKey = 'achievements_v1';
   final Map<String, AchievementProgress> _progressByLocation = {};
 
   bool _isLoaded = false;
@@ -20,38 +17,62 @@ class AchievementProvider with ChangeNotifier {
 
   Future<void> loadFromStorage() async {
     if (_isLoaded) return;
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_prefsKey);
-    if (raw != null && raw.isNotEmpty) {
-      try {
-        final List decoded = jsonDecode(raw) as List;
-        for (final item in decoded) {
-          if (item is Map<String, dynamic>) {
-            final progress = AchievementProgress.fromJson(item);
-            _progressByLocation[progress.location] = progress;
-          }
-        }
-      } catch (_) {
-        // ignore corrupt cache
+    await _fetchPlansFromSupabase();
+  }
+
+  Future<void> _fetchPlansFromSupabase() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final currentUser = supabase.auth.currentUser;
+      
+      if (currentUser == null) {
+        debugPrint('[AchievementProvider] No user logged in, skipping plan fetch');
+        _isLoaded = true;
+        notifyListeners();
+        return;
       }
+
+      debugPrint('[AchievementProvider] Fetching plans for user: ${currentUser.id}');
+
+      // Fetch all plans for the current user from Supabase
+      final plans = await supabase
+          .from('plans')
+          .select()
+          .eq('user_id', currentUser.id);
+
+      debugPrint('[AchievementProvider] Found ${plans.length} plans');
+
+      // Count visits by location
+      final Map<String, int> locationCount = {};
+      for (final plan in plans) {
+        final location = plan['location']?.toString() ?? '';
+        if (location.isNotEmpty) {
+          locationCount[location] = (locationCount[location] ?? 0) + 1;
+          debugPrint('[AchievementProvider] Location: $location, Count: ${locationCount[location]}');
+        }
+      }
+
+      // Convert to AchievementProgress objects
+      _progressByLocation.clear();
+      locationCount.forEach((location, count) {
+        _progressByLocation[location] = AchievementProgress(
+          location: location,
+          visits: count,
+        );
+      });
+
+      debugPrint('[AchievementProvider] Loaded ${_progressByLocation.length} unique locations');
+      _isLoaded = true;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[AchievementProvider] Error fetching plans: $e');
+      _isLoaded = true;
+      notifyListeners();
     }
-    _isLoaded = true;
-    notifyListeners();
   }
 
-  Future<void> incrementLocationVisit(String location) async {
-    final trimmed = location.trim();
-    if (trimmed.isEmpty) return;
-
-    final current = _progressByLocation[trimmed] ?? AchievementProgress(location: trimmed, visits: 0);
-    _progressByLocation[trimmed] = current.copyWith(visits: current.visits + 1);
-    await _persist();
-    notifyListeners();
-  }
-
-  Future<void> _persist() async {
-    final prefs = await SharedPreferences.getInstance();
-    final list = _progressByLocation.values.map((a) => a.toJson()).toList();
-    await prefs.setString(_prefsKey, jsonEncode(list));
+  Future<void> refreshAchievements() async {
+    _isLoaded = false;
+    await _fetchPlansFromSupabase();
   }
 }

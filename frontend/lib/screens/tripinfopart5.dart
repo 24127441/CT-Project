@@ -17,8 +17,8 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
   final TextEditingController _tripNameController = TextEditingController();
 
   // Màu sắc theo thiết kế cũ của bạn
-  final Color primaryGreen = const Color(0xFF4CAF50);
-  final Color darkGreen = const Color(0xFF388E3C);
+  final Color primaryGreen = const Color(0xFF425E3C);
+  final Color darkGreen = const Color(0xFF425E3C);
   final Color cardBackground = const Color(0xFFC8D7C8);
 
   @override

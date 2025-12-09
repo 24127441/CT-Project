@@ -1,8 +1,6 @@
 import 'dart:math';
-import 'dart:ui' as ui;
-import 'dart:typed_data';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -563,7 +561,8 @@ class _InteractiveMapPageState extends State<InteractiveMapPage> {
       }
 
       await tripProvider.confirmRouteForPlan(widget.route.id, checklist: aiGeneratedChecklist);
-      await achievementProvider.incrementLocationVisit(widget.route.location);
+      // Achievements are now automatically updated by fetching plans from Supabase
+      await achievementProvider.refreshAchievements();
 
       if (mounted) {
         NotificationService.showSuccess('Đã cập nhật chuyến đi.');

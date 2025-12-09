@@ -8,8 +8,8 @@ import 'home_screen.dart';
 class TripInfoScreen extends StatelessWidget {
   const TripInfoScreen({super.key});
 
-  final Color primaryGreen = const Color(0xFF4CAF50);
-  final Color darkGreen = const Color(0xFF388E3C);
+  final Color primaryGreen = const Color(0xFF425E3C);
+  final Color darkGreen = const Color(0xFF425E3C);
 
   @override
   Widget build(BuildContext context) {

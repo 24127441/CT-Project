@@ -43,6 +43,7 @@ flutter:
   assets:
     - assets/icon/app_icon.png
     - assets/images/empty_state.png
+    - assets/images/home_background.png
     - .env
 
 flutter_icons:

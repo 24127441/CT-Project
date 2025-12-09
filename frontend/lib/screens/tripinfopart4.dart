@@ -13,8 +13,8 @@ class TripRequestScreen extends StatefulWidget {
 
 class _TripRequestScreenState extends State<TripRequestScreen> {
   late TextEditingController _noteController;
-  final Color primaryGreen = const Color(0xFF4CAF50);
-  final Color darkGreen = const Color(0xFF388E3C);
+  final Color primaryGreen = const Color(0xFF425E3C);
+  final Color darkGreen = const Color(0xFF425E3C);
   final List<String> _suggestedInterests = ['Rừng nguyên sinh', 'Ngắm hoàng hôn', 'Ăn chay', 'Ngắm bình minh', 'Tiệc BBQ ngoài trời', 'Dị ứng hải sản', 'Tìm hiểu văn hóa địa phương', 'Chụp ảnh phong cảnh', 'Leo núi', 'Tắm suối', 'Thiền / Yoga'];
 
   @override

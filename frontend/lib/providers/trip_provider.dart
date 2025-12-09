@@ -224,6 +224,18 @@ class TripProvider with ChangeNotifier {
     if (_searchLocation.isEmpty || _accommodation == null || _paxGroup == null || _difficultyLevel == null) {
       throw Exception("Vui lòng điền đầy đủ thông tin trước khi lưu.");
     }
+    
+    // Validate that start date is not in the past
+    if (_startDate != null) {
+      final now = DateTime.now();
+      final startDateOnly = DateTime(_startDate!.year, _startDate!.month, _startDate!.day);
+      final todayOnly = DateTime(now.year, now.month, now.day);
+      
+      if (startDateOnly.isBefore(todayOnly)) {
+        throw Exception("Ngày bắt đầu không được là ngày trong quá khứ. Vui lòng chọn ngày từ hôm nay trở đi.");
+      }
+    }
+    
     final payload = {
       'location': _searchLocation,
       'rest_type': _accommodation,

@@ -2,8 +2,6 @@
 import 'dart:convert';
 
 import 'dart:math';
-import 'dart:ui' as ui;
-import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
@@ -30,7 +28,7 @@ import 'package:latlong2/latlong.dart' as fcoords; // Toạ độ cho 2D Map
 import 'package:fl_chart/fl_chart.dart'; // Biểu đồ
 
 const kBgColor = Color(0xFFF8F6F2);
-const kPrimaryGreen = Color(0xFF38C148);
+const kPrimaryGreen = Color(0xFF425E3C);
 
 class InteractivePoint {
   final fcoords.LatLng coordinate; // Tọa độ (để vẽ marker trên Map)
@@ -1687,7 +1685,9 @@ class _RouteTabState extends State<_RouteTab> with AutomaticKeepAliveClientMixin
     if (input.length <= targetCount) return input;
     List<fcoords.LatLng> result = [];
     int step = (input.length / targetCount).floor();
-    for (int i = 0; i < input.length; i += step) result.add(input[i]);
+    for (int i = 0; i < input.length; i += step) {
+      result.add(input[i]);
+    }
     if (result.isNotEmpty && result.last != input.last) result.add(input.last);
     return result;
   }
@@ -1785,7 +1785,7 @@ class _RouteTabState extends State<_RouteTab> with AutomaticKeepAliveClientMixin
                   LineChartBarData(
                     spots: _interactivePoints.map((p) => FlSpot(p.distance, p.elevation)).toList(),
                     isCurved: true, color: Colors.black87, barWidth: 2, isStrokeCapRound: true, dotData: const FlDotData(show: false),
-                    belowBarData: BarAreaData(show: true, gradient: LinearGradient(colors: [Colors.green.withOpacity(0.3), Colors.transparent], begin: Alignment.topCenter, end: Alignment.bottomCenter)),
+                    belowBarData: BarAreaData(show: true, gradient: LinearGradient(colors: [const Color(0xFF425E3C).withValues(alpha: 0.3), Colors.transparent], begin: Alignment.topCenter, end: Alignment.bottomCenter)),
                   ),
                 ],
               ),
@@ -1846,7 +1846,7 @@ class _RouteTabState extends State<_RouteTab> with AutomaticKeepAliveClientMixin
         fmap.TileLayer(urlTemplate: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}'),
         fmap.PolylineLayer(polylines: [fmap.Polyline(points: _coords2D, color: const Color(0xFFE91E63), strokeWidth: 5.0, strokeCap: StrokeCap.round, strokeJoin: StrokeJoin.round)]),
         fmap.MarkerLayer(markers: [
-          fmap.Marker(point: _coords2D.first, width: 80, height: 50, child: _build2DLabelMarker("START", Icons.circle, Colors.green)),
+          fmap.Marker(point: _coords2D.first, width: 80, height: 50, child: _build2DLabelMarker("START", Icons.circle, const Color(0xFF425E3C))),
           fmap.Marker(point: _coords2D.last, width: 80, height: 50, child: _build2DLabelMarker("END", Icons.flag, Colors.red)),
           ..._waypointsData.map((wpt) => fmap.Marker(point: fcoords.LatLng(wpt['latitude'], wpt['longitude']), width: 100, height: 70, child: _build2DDetailMarker(wpt))),
         ]),
@@ -1864,7 +1864,7 @@ class _RouteTabState extends State<_RouteTab> with AutomaticKeepAliveClientMixin
     Color color = Colors.blue; IconData icon = Icons.place;
     if (wpt['type'] == 'summit') { color = Colors.brown; icon = Icons.terrain; }
     if (wpt['type'] == 'danger') { color = Colors.red; icon = Icons.warning_rounded; }
-    if (wpt['type'] == 'campsite') { color = Colors.green; icon = Icons.night_shelter; }
+    if (wpt['type'] == 'campsite') { color = const Color(0xFF425E3C); icon = Icons.night_shelter; }
     return GestureDetector(
       onTap: () {}, // Show modal if needed
       child: Column(children: [Container(padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2), decoration: BoxDecoration(color: Colors.white.withAlpha(230), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.grey[300]!)), child: Text(wpt['name'], style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold), maxLines: 1)), Container(padding: const EdgeInsets.all(3), decoration: BoxDecoration(color: color, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5)), child: Icon(icon, color: Colors.white, size: 12))]),
@@ -1899,9 +1899,9 @@ class _RouteTabState extends State<_RouteTab> with AutomaticKeepAliveClientMixin
             const Text("Biểu đồ độ cao", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
             _buildElevationChart(),
             const SizedBox(height: 24),
-            Row(children: const [Icon(Icons.auto_awesome, size: 20, color: Colors.purple), SizedBox(width: 8), Text("Thông tin AI gợi ý", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))]),
+            Row(children: const [Icon(Icons.auto_awesome, size: 20, color: Color(0xFF425E3C)), SizedBox(width: 8), Text("Thông tin AI gợi ý", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))]),
             const SizedBox(height: 12),
-            Container(width: double.infinity, padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.purple.withOpacity(0.05), borderRadius: BorderRadius.circular(12)), child: widget.isLoadingNote ? const Center(child: CircularProgressIndicator()) : Text(widget.aiNote ?? "Không có thông tin", style: const TextStyle(fontSize: 15, height: 1.6))),
+            Container(width: double.infinity, padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Color(0xFF425E3C).withValues(alpha: 0.05), borderRadius: BorderRadius.circular(12)), child: widget.isLoadingNote ? const Center(child: CircularProgressIndicator()) : Text(widget.aiNote ?? "Không có thông tin", style: const TextStyle(fontSize: 15, height: 1.6))),
           ]),
         ),
       ],

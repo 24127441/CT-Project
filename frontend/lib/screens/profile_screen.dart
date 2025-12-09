@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/auth_service.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -22,7 +23,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _currentUser = _supabase.auth.currentUser!;
+    
+    // Check if user is logged in before accessing profile
+    final currentUser = _supabase.auth.currentUser;
+    if (currentUser == null) {
+      // User is not logged in, navigate back to welcome screen
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/welcome',
+            (route) => false,
+          );
+        }
+      });
+      // Initialize with empty controller to prevent errors
+      _fullNameController = TextEditingController();
+      return;
+    }
+    
+    _currentUser = currentUser;
     _fullNameController = TextEditingController();
     _loadUserData();
   }
@@ -36,25 +55,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadUserData() async {
     try {
       setState(() => _isLoading = true);
+      
+      // Check if user is still logged in
+      final currentUser = _supabase.auth.currentUser;
+      if (currentUser == null) {
+        debugPrint('[ProfileScreen] No user logged in, redirecting to welcome');
+        if (mounted) {
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/welcome',
+            (route) => false,
+          );
+        }
+        return;
+      }
+      
       // Reload user to get latest metadata
-      await _supabase.auth.refreshSession();
-      _currentUser = _supabase.auth.currentUser!;
+      try {
+        await _supabase.auth.refreshSession();
+      } catch (e) {
+        debugPrint('[ProfileScreen] Session refresh failed (might be expected): $e');
+      }
+      
+      // Get fresh user data
+      final refreshedUser = _supabase.auth.currentUser;
+      if (refreshedUser == null) {
+        debugPrint('[ProfileScreen] User session expired, redirecting to welcome');
+        if (mounted) {
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/welcome',
+            (route) => false,
+          );
+        }
+        return;
+      }
+      
+      _currentUser = refreshedUser;
       
       // Get full name from user metadata if available
-      final fullName = _currentUser.userMetadata?['full_name'] ?? '';
+      final fullName = _currentUser.userMetadata?['full_name'] as String? ?? '';
       _fullNameController.text = fullName;
+      
+      debugPrint('[ProfileScreen] Loaded user: ${_currentUser.email}');
+      debugPrint('[ProfileScreen] Full name: $fullName');
       
       // Fetch all existing emails from Supabase auth.users
       await _fetchExistingEmails();
       
       setState(() => _isLoading = false);
     } catch (e) {
+      debugPrint('[ProfileScreen] Error loading user data: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Lỗi tải hồ sơ: $e')),
         );
+        setState(() => _isLoading = false);
       }
-      setState(() => _isLoading = false);
     }
   }
 
@@ -103,6 +158,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       setState(() => _isLoading = true);
 
+      debugPrint('[ProfileScreen] Updating user metadata with full_name: $fullName');
+
       // Update user metadata in Supabase
       await _supabase.auth.updateUser(
         UserAttributes(
@@ -110,7 +167,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       );
 
+      // Refresh to get updated data
+      await _supabase.auth.refreshSession();
       _currentUser = _supabase.auth.currentUser!;
+
+      debugPrint('[ProfileScreen] User metadata updated successfully');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -125,6 +186,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         });
       }
     } catch (e) {
+      debugPrint('[ProfileScreen] Error updating profile: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -135,6 +197,467 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
       setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _showChangePasswordDialog() async {
+    final currentPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    bool obscureCurrentPassword = true;
+    bool obscureNewPassword = true;
+    bool obscureConfirmPassword = true;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Đổi mật khẩu'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: currentPasswordController,
+                  obscureText: obscureCurrentPassword,
+                  decoration: InputDecoration(
+                    labelText: 'Mật khẩu hiện tại',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        obscureCurrentPassword ? Icons.visibility_off : Icons.visibility,
+                      ),
+                      onPressed: () {
+                        setDialogState(() {
+                          obscureCurrentPassword = !obscureCurrentPassword;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: newPasswordController,
+                  obscureText: obscureNewPassword,
+                  decoration: InputDecoration(
+                    labelText: 'Mật khẩu mới',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        obscureNewPassword ? Icons.visibility_off : Icons.visibility,
+                      ),
+                      onPressed: () {
+                        setDialogState(() {
+                          obscureNewPassword = !obscureNewPassword;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: confirmPasswordController,
+                  obscureText: obscureConfirmPassword,
+                  decoration: InputDecoration(
+                    labelText: 'Xác nhận mật khẩu mới',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                      ),
+                      onPressed: () {
+                        setDialogState(() {
+                          obscureConfirmPassword = !obscureConfirmPassword;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                currentPasswordController.dispose();
+                newPasswordController.dispose();
+                confirmPasswordController.dispose();
+                Navigator.pop(context);
+              },
+              child: const Text('Hủy'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final currentPassword = currentPasswordController.text.trim();
+                final newPassword = newPasswordController.text.trim();
+                final confirmPassword = confirmPasswordController.text.trim();
+
+                if (currentPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Vui lòng điền đầy đủ thông tin'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                if (newPassword.length < 6) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Mật khẩu mới phải có ít nhất 6 ký tự'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                if (newPassword != confirmPassword) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Mật khẩu mới không khớp'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                currentPasswordController.dispose();
+                newPasswordController.dispose();
+                confirmPasswordController.dispose();
+                Navigator.pop(context);
+
+                await _changePassword(newPassword);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF425E3C),
+              ),
+              child: const Text('Đổi mật khẩu', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _changePassword(String newPassword) async {
+    try {
+      setState(() => _isLoading = true);
+
+      await _supabase.auth.updateUser(
+        UserAttributes(
+          password: newPassword,
+        ),
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đổi mật khẩu thành công!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      debugPrint('[ProfileScreen] Error changing password: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi đổi mật khẩu: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _showHelpSupport() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Trợ giúp & Hỗ trợ',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const Icon(Icons.email_outlined, color: Color(0xFF425E3C)),
+              title: const Text('Gửi Email'),
+              subtitle: const Text('Liên hệ qua email'),
+              onTap: () {
+                Navigator.pop(context);
+                _launchEmail();
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.phone_outlined, color: Color(0xFF425E3C)),
+              title: const Text('Gọi điện'),
+              subtitle: const Text('Liên hệ qua điện thoại'),
+              onTap: () {
+                Navigator.pop(context);
+                _launchPhone();
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.info_outlined, color: Color(0xFF425E3C)),
+              title: const Text('About Us'),
+              subtitle: const Text('Tìm hiểu về Trek Guide'),
+              onTap: () {
+                Navigator.pop(context);
+                _showAboutUs();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAboutUs() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        expand: false,
+        builder: (context, scrollController) => SingleChildScrollView(
+          controller: scrollController,
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Text(
+                    'FIVE-POINT CREW',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF425E3C),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Center(
+                  child: Text(
+                    'Cùng phát triển ứng dụng chúng tôi\nđạt những mục đích sau',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 30),
+                
+                // Five Points Grid
+                GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 16,
+                  crossAxisSpacing: 16,
+                  children: [
+                    _buildAboutCard(
+                      icon: Icons.favorite_outline,
+                      title: 'Từ lòng chân thành',
+                      subtitle: 'chuyến trekking mỗi cách bạn bắn',
+                      color: const Color(0xFF425E3C),
+                    ),
+                    _buildAboutCard(
+                      icon: Icons.access_time,
+                      title: 'Tiết kiệm thời gian tìm\nthông tin lịch',
+                      color: const Color(0xFF425E3C),
+                    ),
+                    _buildAboutCard(
+                      icon: Icons.people_outline,
+                      title: 'Giúp hiểu rõ và\ndu xuân hợp tác',
+                      color: const Color(0xFF425E3C),
+                    ),
+                    _buildAboutCard(
+                      icon: Icons.group,
+                      title: 'Cả nhân hóa chuyến\nđi trekking',
+                      color: const Color(0xFF425E3C),
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 30),
+                
+                // App Version and Info
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Thông tin ứng dụng',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: const [
+                          Text('Phiên bản: ', style: TextStyle(color: Colors.grey)),
+                          Text('1.0.0', style: TextStyle(fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Năm: ', style: TextStyle(color: Colors.grey)),
+                          Text(
+                            DateTime.now().year.toString(),
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Phát triển bởi: ', style: TextStyle(color: Colors.grey)),
+                          Text('Trek Guide Team', style: TextStyle(fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAboutCard({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    required Color color,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 28),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              height: 1.3,
+            ),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey[600],
+                height: 1.2,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _launchEmail() {
+    final email = 'support@trekguide.com';
+    final subject = Uri.encodeComponent('Trek Guide Support');
+    final body = Uri.encodeComponent('Xin chào,\n\nTôi cần trợ giúp với...\n\nEmail: ${_currentUser.email}');
+    
+    final mailtoLink = 'mailto:$email?subject=$subject&body=$body';
+    
+    launchUrl(Uri.parse(mailtoLink)).catchError((error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không thể mở ứng dụng email'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return false;
+    });
+  }
+
+  void _launchPhone() {
+    const phoneNumber = '+84123456789';
+    final telLink = 'tel:$phoneNumber';
+    
+    launchUrl(Uri.parse(telLink)).catchError((error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không thể gọi điện'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return false;
+    });
   }
 
   Future<void> _handleLogout() async {
@@ -241,7 +764,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   color: forestGreen,
                                 ),
                               ),
-                              const SizedBox(height: 20),
+                              const SizedBox(height: 16),
+                              // User Name (from metadata)
+                              Text(
+                                _fullNameController.text.isNotEmpty 
+                                    ? _fullNameController.text 
+                                    : 'Chưa cập nhật tên',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: _fullNameController.text.isNotEmpty 
+                                      ? Colors.black87 
+                                      : Colors.grey[400],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
                               // User Email
                               Text(
                                 _currentUser.email ?? 'No email',
@@ -444,42 +981,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: Column(
                             children: [
                               _buildSettingItem(
-                                icon: Icons.notifications_outlined,
-                                title: 'Thông báo',
-                                subtitle: 'Quản lý cài đặt thông báo',
-                                onTap: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Tính năng này sẽ sớm có'),
-                                    ),
-                                  );
-                                },
-                              ),
-                              _buildDivider(),
-                              _buildSettingItem(
-                                icon: Icons.privacy_tip_outlined,
-                                title: 'Quyền riêng tư',
-                                subtitle: 'Quản lý dữ liệu cá nhân',
-                                onTap: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Tính năng này sẽ sớm có'),
-                                    ),
-                                  );
-                                },
+                                icon: Icons.lock_outline,
+                                title: 'Đổi mật khẩu',
+                                subtitle: 'Thay đổi mật khẩu tài khoản',
+                                onTap: _showChangePasswordDialog,
                               ),
                               _buildDivider(),
                               _buildSettingItem(
                                 icon: Icons.help_outline,
                                 title: 'Trợ giúp & Hỗ trợ',
                                 subtitle: 'Liên hệ với chúng tôi',
-                                onTap: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Tính năng này sẽ sớm có'),
-                                    ),
-                                  );
-                                },
+                                onTap: _showHelpSupport,
                               ),
                             ],
                           ),

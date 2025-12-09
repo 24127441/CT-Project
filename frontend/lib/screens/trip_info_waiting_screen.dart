@@ -80,7 +80,7 @@ class _WaitingScreenState extends State<WaitingScreen> {
               height: 80,
               child: CircularProgressIndicator(
                 strokeWidth: 8,
-                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF4CAF50)),
+                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF425E3C)),
                 backgroundColor: Colors.grey.shade300,
                 strokeCap: StrokeCap.round,
               ),

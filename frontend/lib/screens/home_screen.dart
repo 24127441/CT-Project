@@ -1,3 +1,4 @@
+// ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
@@ -25,7 +26,15 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final currentUser = Supabase.instance.client.auth.currentUser;
-    final userName = currentUser?.userMetadata?['full_name'] ?? 'Người dùng';
+    // Get user's full name from metadata, fallback to email name, then to generic greeting
+    String userName = currentUser?.userMetadata?['full_name'] as String? ?? '';
+    if (userName.isEmpty && currentUser?.email != null) {
+      // Extract first part of email as fallback
+      userName = currentUser!.email!.split('@').first;
+    }
+    if (userName.isEmpty) {
+      userName = 'Người dùng';
+    }
     
     // Get current time for greeting
     final hour = DateTime.now().hour;
@@ -35,25 +44,24 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       body: Column(
         children: [
-          // 1. HEADER SECTION with Illustrated Background
+          // 1. HEADER SECTION with Forest Background Image
           Expanded(
             flex: 5,
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // Gradient Background
+                // Forest Background Image
                 Container(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        _forestGreen.withValues(alpha: 0.9),
-                        _forestGreen,
-                        const Color(0xFF2D4A26),
-                      ],
+                    image: DecorationImage(
+                      image: const AssetImage('assets/images/home_background.png'),
+                      fit: BoxFit.cover,
                     ),
                   ),
+                ),
+                // Dark overlay to ensure text readability
+                Container(
+                  color: Colors.black.withValues(alpha: 0.25),
                 ),
                 // Decorative Elements
                 Positioned(
@@ -64,7 +72,7 @@ class _HomePageState extends State<HomePage> {
                     height: 200,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.white.withValues(alpha: 0.1),
+                      color: Colors.white.withValues(alpha: 0.05),
                     ),
                   ),
                 ),
@@ -76,18 +84,8 @@ class _HomePageState extends State<HomePage> {
                     height: 150,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.white.withValues(alpha: 0.08),
+                      color: Colors.white.withValues(alpha: 0.03),
                     ),
-                  ),
-                ),
-                // Mountain Illustration
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: CustomPaint(
-                    size: const Size(double.infinity, 180),
-                    painter: MountainPainter(),
                   ),
                 ),
                 // Content
@@ -118,12 +116,9 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ],
                             ),
-                            // ... các import và code phía trên
-
-// Tìm đến đoạn này (khoảng dòng 121):
-                            GestureDetector(
-                              onTap: () async { // 1. Thêm từ khóa async
-                                // 2. Thêm await trước Navigator.push
+                                                        GestureDetector(
+                              onTap: () async {
+                                // Navigate to profile screen
                                 await Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -131,12 +126,16 @@ class _HomePageState extends State<HomePage> {
                                   ),
                                 );
 
-                                // 3. Sau khi quay lại từ ProfileScreen, gọi setState để load lại tên mới
+                                // Refresh user data after returning from profile screen
                                 if (mounted) {
-                                  setState(() {
-                                    // Hàm này rỗng cũng được, mục đích là để kích hoạt lại hàm build()
-                                    // Hàm build() sẽ chạy lại dòng: final userName = currentUser?.userMetadata?['full_name']
-                                  });
+                                  // Reload current user session to get updated metadata
+                                  try {
+                                    await Supabase.instance.client.auth.refreshSession();
+                                  } catch (e) {
+                                    debugPrint('Error refreshing session: $e');
+                                  }
+                                  // Trigger rebuild to show updated name
+                                  setState(() {});
                                 }
                               },
                               child: Container(
@@ -229,13 +228,18 @@ class _HomePageState extends State<HomePage> {
                                       context,
                                       'Tạo mới',
                                       Icons.add_circle_outline,
-                                      () {
-                                        Navigator.push(
-                                          context,
+                                      () async {
+                                        final ctx = context;
+                                        await Navigator.push(
+                                          ctx,
                                           MaterialPageRoute(
                                             builder: (context) => const TripInfoScreen(),
                                           ),
                                         );
+                                        // Refresh achievements after returning from trip creation
+                                        if (mounted) {
+                                          await ctx.read<AchievementProvider>().refreshAchievements();
+                                        }
                                       },
                                     ),
                                   ),
@@ -267,13 +271,18 @@ class _HomePageState extends State<HomePage> {
                       title: 'Chuyến đi đã tạo',
                       subtitle: 'Xem các kế hoạch đã lưu',
                       isExpanded: false,
-                      onTap: () {
-                        Navigator.push(
-                          context,
+                      onTap: () async {
+                        final ctx = context;
+                        await Navigator.push(
+                          ctx,
                           MaterialPageRoute(
                             builder: (context) => trip_list.TripListView(),
                           ),
                         );
+                        // Refresh achievements after returning from trip list
+                        if (mounted) {
+                          await ctx.read<AchievementProvider>().refreshAchievements();
+                        }
                       },
                     ),
                     const SizedBox(height: 24),
@@ -638,58 +647,4 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-}
-
-// Custom Painter for Mountain Illustration
-class MountainPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..style = PaintingStyle.fill;
-
-    // Mountain layers with different shades of green
-    final mountain1 = Path();
-    paint.color = const Color(0xFF2D4A26).withValues(alpha: 0.6);
-    mountain1.moveTo(0, size.height * 0.4);
-    mountain1.lineTo(size.width * 0.3, size.height * 0.1);
-    mountain1.lineTo(size.width * 0.6, size.height * 0.5);
-    mountain1.lineTo(0, size.height);
-    mountain1.close();
-    canvas.drawPath(mountain1, paint);
-
-    final mountain2 = Path();
-    paint.color = const Color(0xFF3A5A2E).withValues(alpha: 0.7);
-    mountain2.moveTo(size.width * 0.3, size.height * 0.6);
-    mountain2.lineTo(size.width * 0.6, size.height * 0.2);
-    mountain2.lineTo(size.width, size.height * 0.7);
-    mountain2.lineTo(size.width, size.height);
-    mountain2.lineTo(size.width * 0.3, size.height);
-    mountain2.close();
-    canvas.drawPath(mountain2, paint);
-
-    final mountain3 = Path();
-    paint.color = const Color(0xFF425E3C).withValues(alpha: 0.8);
-    mountain3.moveTo(size.width * 0.5, size.height * 0.5);
-    mountain3.lineTo(size.width * 0.8, size.height * 0.15);
-    mountain3.lineTo(size.width, size.height * 0.6);
-    mountain3.lineTo(size.width, size.height);
-    mountain3.lineTo(size.width * 0.5, size.height);
-    mountain3.close();
-    canvas.drawPath(mountain3, paint);
-
-    // Trees silhouettes
-    paint.color = const Color(0xFF1E3419).withValues(alpha: 0.4);
-    for (int i = 0; i < 5; i++) {
-      final x = size.width * (0.1 + i * 0.2);
-      final tree = Path();
-      tree.moveTo(x, size.height * 0.7);
-      tree.lineTo(x - 5, size.height);
-      tree.lineTo(x + 5, size.height);
-      tree.close();
-      canvas.drawPath(tree, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
