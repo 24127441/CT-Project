@@ -147,7 +147,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Đăng nhập thành công!'))
       );
-      Navigator.of(context).pushReplacementNamed('/home');
+      Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
 
     } catch (e) {
       if (!mounted) return;
@@ -189,7 +189,22 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 ),
                 const SizedBox(height: 24),
                 _isLoading
-                    ? const CircularProgressIndicator(color: AppColors.primaryGreen)
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            CircularProgressIndicator(color: AppColors.primaryGreen),
+                            SizedBox(height: 16),
+                            Text(
+                              'Đang xử lý...',
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
                     : Column(
                         children: [
                           // Digit boxes are hidden by default; toggle `_showDigitBoxes` to show them.

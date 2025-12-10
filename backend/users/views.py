@@ -87,6 +87,32 @@ class VerifyOTPView(APIView):
         except User.DoesNotExist:
             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
+
+class CheckEmailExistsView(APIView):
+    """
+    Check if an email already exists in the database
+    GET /users/check-email/?email=example@example.com
+    Returns: {"exists": true/false}
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        email = request.query_params.get('email', '').strip().lower()
+        
+        if not email:
+            return Response(
+                {"error": "Email parameter is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        exists = User.objects.filter(email=email).exists()
+        logger.debug(f"Email check: {email} - exists={exists}")
+        
+        return Response(
+            {"exists": exists, "email": email},
+            status=status.HTTP_200_OK
+        )
+
 # --- NEW VIEW: MANAGE TRIP TEMPLATES ---
 class TripTemplateListCreateView(generics.ListCreateAPIView):
     """

@@ -26,6 +26,9 @@ class TripProvider with ChangeNotifier {
 
   int? _currentPlanId; 
   int? get currentPlanId => _currentPlanId;
+  
+  bool _routeConfirmed = false;
+  bool get routeConfirmed => _routeConfirmed;
 
   // --- Getters ---
   String get searchLocation => _searchLocation;
@@ -148,9 +151,29 @@ class TripProvider with ChangeNotifier {
   // --- SAVE DRAFT PLAN (Step 1-4) ---
   Future<void> saveTripRequest() async {
     try {
-      if (_tripName.isEmpty) throw Exception("Vui lòng đặt tên cho chuyến đi");
-      if (_startDate == null) throw Exception("Vui lòng chọn ngày khởi hành");
+      print('\n🟡🟡🟡 [TripProvider] === START saveTripRequest ===');
+      print('🟡 [TripProvider] Trip Name: $_tripName');
+      AppLogger.d('TripProvider', '=== START saveTripRequest ===');
+      AppLogger.d('TripProvider', 'Trip Name: $_tripName');
+      AppLogger.d('TripProvider', 'Start Date: $_startDate');
+      AppLogger.d('TripProvider', 'Search Location: $_searchLocation');
+      AppLogger.d('TripProvider', 'Accommodation: $_accommodation');
+      AppLogger.d('TripProvider', 'Difficulty: $_difficultyLevel');
+      AppLogger.d('TripProvider', 'Selected Interests: $_selectedInterests');
+      AppLogger.d('TripProvider', 'Duration Days: $durationDays');
+      AppLogger.d('TripProvider', 'Parsed Group Size: $parsedGroupSize');
+      
+      if (_tripName.isEmpty) {
+        AppLogger.e('TripProvider', 'Trip name is empty - throwing exception');
+        throw Exception("Vui lòng đặt tên cho chuyến đi");
+      }
+      if (_startDate == null) {
+        AppLogger.e('TripProvider', 'Start date is null - throwing exception');
+        throw Exception("Vui lòng chọn ngày khởi hành");
+      }
 
+      AppLogger.d('TripProvider', 'Creating initial plan via Supabase service...');
+      
       // Call Service to create INITIAL plan
       final response = await _supabaseDb.createPlan(
         name: _tripName,
@@ -160,18 +183,24 @@ class TripProvider with ChangeNotifier {
         groupSize: parsedGroupSize,
         startDate: _startDate!.toIso8601String().split('T').first,
         durationDays: durationDays,
-        difficulty: _difficultyLevel ?? 'Vừa phải',
+        difficulty: _difficultyLevel ?? 'Người mới',
         personalInterests: _selectedInterests,
       );
+
+      AppLogger.d('TripProvider', 'Response from createPlan: $response');
 
       // 🟢 STORE THE ID for later use
       if (response['id'] != null) {
         _currentPlanId = response['id'];
-        AppLogger.d('TripProvider', 'Draft Plan saved. ID: $_currentPlanId');
+        AppLogger.d('TripProvider', 'Draft Plan saved successfully. ID: $_currentPlanId');
+      } else {
+        AppLogger.d('TripProvider', 'Response received but no ID found in response');
       }
+      
+      AppLogger.d('TripProvider', '=== END saveTripRequest SUCCESS ===');
 
     } catch (e) {
-      AppLogger.e('TripProvider', 'Error saving trip request: ${e.toString()}');
+      AppLogger.e('TripProvider', '=== ERROR in saveTripRequest: ${e.toString()} ===');
       rethrow;
     }
   }
@@ -179,10 +208,18 @@ class TripProvider with ChangeNotifier {
   // Updated to accept the AI generated checklist
   Future<void> confirmRouteForPlan(int routeId, {Map<String, dynamic>? checklist}) async {
     try {
+      print('\n🟡🟡🟡 [TripProvider] === START confirmRouteForPlan ===');
+      print('🟡 [TripProvider] Route ID: $routeId');
+      print('🟡 [TripProvider] Current Plan ID: $_currentPlanId');
+      print('🟡 [TripProvider] Trip Name: $_tripName');
+      print('🟡 [TripProvider] Location: $_searchLocation');
+      print('🟡 [TripProvider] Difficulty: $_difficultyLevel');
+      
       AppLogger.d('TripProvider', 'Confirming route for plan. routeId=$routeId, currentPlanId=$_currentPlanId');
 
       // If we don't have a draft plan on the server yet, create one now attaching the selected route.
       if (_currentPlanId == null) {
+        print('🟡 [TripProvider] ⚠️ WARNING: No draft plan ID found, creating new plan with route');
         // Create plan with routeId filled
         final resp = await _supabaseDb.createPlan(
           name: _tripName,
@@ -192,21 +229,24 @@ class TripProvider with ChangeNotifier {
           groupSize: parsedGroupSize,
           startDate: _startDate?.toIso8601String().split('T').first ?? DateTime.now().toIso8601String().split('T').first,
           durationDays: durationDays,
-          difficulty: _difficultyLevel ?? 'Vừa phải',
+          difficulty: _difficultyLevel ?? 'Người mới',
           personalInterests: _selectedInterests,
         );
 
         if (resp['id'] != null) {
           _currentPlanId = resp['id'];
+          print('🟡 [TripProvider] ✅ Created plan with route. ID=$_currentPlanId');
           AppLogger.d('TripProvider', 'Created plan with route. ID=$_currentPlanId');
         }
       } else {
+        print('🟡 [TripProvider] Updating existing draft plan $_currentPlanId with route $routeId');
         // Update existing draft to set route and optionally checklist
         await _supabaseDb.updatePlanRoute(
           _currentPlanId!,
           routeId,
           checklist: checklist,
         );
+        print('🟡 [TripProvider] ✅ Draft plan updated successfully');
       }
 
       // If checklist provided and we just created the plan, ensure checklist is attached
@@ -214,6 +254,10 @@ class TripProvider with ChangeNotifier {
         await _supabaseDb.updatePlanRoute(_currentPlanId!, routeId, checklist: checklist);
       }
 
+      // Mark route as confirmed so draft won't be deleted
+      _routeConfirmed = true;
+      print('🟡 [TripProvider] ✅ Route confirmed, draft plan will be kept');
+      AppLogger.d('TripProvider', 'Route confirmed successfully');
       
     } catch (e) {
       AppLogger.e('TripProvider', 'Error confirming route: ${e.toString()}');
@@ -224,13 +268,16 @@ class TripProvider with ChangeNotifier {
     if (_searchLocation.isEmpty || _accommodation == null || _paxGroup == null || _difficultyLevel == null) {
       throw Exception("Vui lòng điền đầy đủ thông tin trước khi lưu.");
     }
+    
+    // Don't validate start date for history input - leave it blank
+    
     final payload = {
       'location': _searchLocation,
       'rest_type': _accommodation,
       'group_size': parsedGroupSize,
-      'start_date': _startDate?.toIso8601String().split('T').first,
-      'duration_days': durationDays,
-      'difficulty': _difficultyLevel,
+      'start_date': null,  // Leave start_date blank for history input
+      'duration_days': null,  // Leave duration_days blank for history input
+      'difficulty': _difficultyLevel ?? 'Người mới',
       'personal_interests': _selectedInterests,
     };
     await _supabaseDb.saveHistoryInput(name, payload);
@@ -240,33 +287,75 @@ class TripProvider with ChangeNotifier {
   // Và lấy routeId từ tham số selectedRoute truyền vào
   Future<void> createPlan(RouteModel selectedRoute) async {
     try {
-      if (_tripName.isEmpty) throw Exception("Chưa có tên chuyến đi");
+      print('\n🟡🟡🟡 [TripProvider] === START createPlan (Route Confirmation) ===');
+      print('🟡 [TripProvider] Current Plan ID: $_currentPlanId');
+      print('🟡 [TripProvider] Selected Route ID: ${selectedRoute.id}');
+      
+      AppLogger.d('TripProvider', '=== START createPlan (Route Confirmation) ===');
+      AppLogger.d('TripProvider', 'Trip Name: $_tripName');
+      AppLogger.d('TripProvider', 'Selected Route ID: ${selectedRoute.id}');
+      AppLogger.d('TripProvider', 'Selected Route Name: ${selectedRoute.name}');
+      AppLogger.d('TripProvider', 'Current Plan ID: $_currentPlanId');
+      
+      if (_tripName.isEmpty) {
+        AppLogger.e('TripProvider', 'Trip name is empty when confirming route');
+        throw Exception("Chưa có tên chuyến đi");
+      }
 
+      // If we have a draft plan, UPDATE it with the route instead of creating new
+      if (_currentPlanId != null) {
+        print('🟡 [TripProvider] Updating existing draft plan $_currentPlanId with route');
+        AppLogger.d('TripProvider', 'Updating existing draft plan with route...');
+        
+        await _supabaseDb.updatePlanRoute(_currentPlanId!, selectedRoute.id);
+        
+        print('🟡 [TripProvider] ✅ Draft plan updated successfully');
+        print('🟡 [TripProvider] === END createPlan SUCCESS ===\n');
+        AppLogger.d('TripProvider', 'Draft plan updated successfully with route');
+        AppLogger.d('TripProvider', '=== END createPlan SUCCESS ===');
+        return;
+      }
+
+      // Otherwise create a new plan (fallback - shouldn't happen in normal flow)
+      print('🟡 [TripProvider] ⚠️ No draft plan found, creating new plan');
+      AppLogger.d('TripProvider', 'No draft plan found, creating new plan...');
+      
       // Xử lý group size
       int size = 1;
       if (_paxGroup != null && _paxGroup!.contains('3-6')) size = 5;
       if (_paxGroup != null && _paxGroup!.contains('7+')) size = 8;
+      AppLogger.d('TripProvider', 'Calculated group size: $size (from paxGroup: $_paxGroup)');
+
+      AppLogger.d('TripProvider', 'Creating new plan with route via Supabase service...');
 
       // GỌI SERVICE LƯU VÀO DB
-      await _supabaseDb.createPlan(
+      final response = await _supabaseDb.createPlan(
         name: _tripName,
-        routeId: selectedRoute.id, // Quan trọng: Đây là ID lấp vào chỗ NULL trong ảnh
+        routeId: selectedRoute.id,
         location: _searchLocation,
         restType: _accommodation ?? 'Không xác định',
         groupSize: size,
         startDate: _startDate?.toIso8601String().split('T').first ?? DateTime.now().toString(),
         durationDays: durationDays,
-        difficulty: _difficultyLevel ?? 'Vừa phải',
+        difficulty: _difficultyLevel ?? 'Người mới',
         personalInterests: _selectedInterests,
       );
 
-      
+      if (response['id'] != null) {
+        _currentPlanId = response['id'];
+      }
+
+      print('🟡 [TripProvider] ✅ New plan created successfully');
+      print('🟡 [TripProvider] === END createPlan SUCCESS ===\n');
+      AppLogger.d('TripProvider', 'Plan created successfully with route');
+      AppLogger.d('TripProvider', '=== END createPlan SUCCESS ===');
 
       // Không reset vội, để người dùng còn thấy data nếu cần
       // resetTrip();
 
     } catch (e) {
-      AppLogger.e('TripProvider', 'Lỗi Provider createPlan: ${e.toString()}');
+      print('🟡 [TripProvider] ❌ ERROR in createPlan: ${e.toString()}\n');
+      AppLogger.e('TripProvider', '=== ERROR in createPlan: ${e.toString()} ===');
       rethrow;
     }
   }
@@ -346,6 +435,7 @@ class TripProvider with ChangeNotifier {
     _selectedInterests = [];
     _tripName = '';
     _currentPlanId = null;
+    _routeConfirmed = false;
     AppLogger.d('TripProvider', 'Trip state reset');
     notifyListeners();
   }
