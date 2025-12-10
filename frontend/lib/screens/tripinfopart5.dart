@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 // debugPrint is provided by material.dart; no separate foundation import needed
 import 'package:provider/provider.dart';
 import 'package:frontend/utils/notification.dart';
+import 'package:frontend/utils/logger.dart';
 import '../providers/trip_provider.dart';
 import '../services/supabase_db_service.dart';
 import '../screens/home_screen.dart';
@@ -47,8 +48,14 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
         automaticallyImplyLeading: false,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const HomePage()));
+          onPressed: () async {
+            print('🟢 [TripConfirmScreen] Back button pressed, canceling draft plan if exists...');
+            final tripProvider = Provider.of<TripProvider>(context, listen: false);
+            await tripProvider.cancelDraftPlan();
+            print('🟢 [TripConfirmScreen] ✅ Draft plan canceled, navigating to home');
+            if (context.mounted) {
+              Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const HomePage()));
+            }
           },
         ),
         title: const Column(
@@ -201,20 +208,75 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
               child: ElevatedButton(
                   onPressed: () async {
                     try {
+                      print('\n🟢🟢🟢 [TripConfirmScreen] === "Xác nhận" button pressed ===');
                       final isMounted = mounted;
+                      AppLogger.d('TripConfirmScreen', '=== "Xác nhận" button pressed ===');
                       
-                      // Validate trip name is not empty
+                      // Get trip provider
                       final tripProvider = Provider.of<TripProvider>(context, listen: false);
+                      
+                      // Validate all required fields
+                      print('🟢 [TripConfirmScreen] Validating required fields...');
+                      
+                      // 1. Check trip name
                       if (tripProvider.tripName.isEmpty) {
+                        print('🟢 [TripConfirmScreen] ❌ Trip name is empty');
                         if (isMounted) NotificationService.showError('Vui lòng đặt tên cho chuyến đi');
                         return;
                       }
+                      print('🟢 [TripConfirmScreen] ✅ Trip name: ${tripProvider.tripName}');
+                      
+                      // 2. Check location
+                      if (tripProvider.searchLocation.isEmpty) {
+                        print('🟢 [TripConfirmScreen] ❌ Location is empty');
+                        if (isMounted) NotificationService.showError('Vui lòng chọn điểm đến (Bước 1)');
+                        return;
+                      }
+                      print('🟢 [TripConfirmScreen] ✅ Location: ${tripProvider.searchLocation}');
+                      
+                      // 3. Check dates
+                      if (tripProvider.startDate == null || tripProvider.endDate == null) {
+                        print('🟢 [TripConfirmScreen] ❌ Dates are missing');
+                        if (isMounted) NotificationService.showError('Vui lòng chọn thời gian chuyến đi (Bước 2)');
+                        return;
+                      }
+                      print('🟢 [TripConfirmScreen] ✅ Dates: ${tripProvider.startDate} - ${tripProvider.endDate}');
+                      
+                      // 4. Check difficulty level
+                      if (tripProvider.difficultyLevel == null || tripProvider.difficultyLevel!.isEmpty) {
+                        print('🟢 [TripConfirmScreen] ❌ Difficulty level is missing');
+                        if (isMounted) NotificationService.showError('Vui lòng chọn cấp độ (Bước 3)');
+                        return;
+                      }
+                      print('🟢 [TripConfirmScreen] ✅ Difficulty: ${tripProvider.difficultyLevel}');
+                      
+                      // 5. Check accommodation
+                      if (tripProvider.accommodation == null || tripProvider.accommodation!.isEmpty) {
+                        print('🟢 [TripConfirmScreen] ❌ Accommodation is missing');
+                        if (isMounted) NotificationService.showError('Vui lòng chọn loại chỗ nghỉ (Bước 1)');
+                        return;
+                      }
+                      print('🟢 [TripConfirmScreen] ✅ Accommodation: ${tripProvider.accommodation}');
+                      
+                      // 6. Check group size
+                      if (tripProvider.paxGroup == null || tripProvider.paxGroup!.isEmpty) {
+                        print('🟢 [TripConfirmScreen] ❌ Group size is missing');
+                        if (isMounted) NotificationService.showError('Vui lòng chọn số lượng người (Bước 1)');
+                        return;
+                      }
+                      print('🟢 [TripConfirmScreen] ✅ Group size: ${tripProvider.paxGroup}');
+                      
+                      print('🟢 [TripConfirmScreen] ✅ All validations passed!');
+                      AppLogger.d('TripConfirmScreen', 'All required fields are valid');
 
                       // Check if plan name already exists
+                      AppLogger.d('TripConfirmScreen', 'Checking if plan name exists: ${tripProvider.tripName}');
                       final supabaseDb = SupabaseDbService();
                       final exists = await supabaseDb.checkPlanNameExists(tripProvider.tripName);
+                      AppLogger.d('TripConfirmScreen', 'Plan name exists check result: $exists');
                       
                       if (exists) {
+                        AppLogger.d('TripConfirmScreen', 'Plan with this name already exists');
                         if (!isMounted) return;
                         // Show warning dialog
                         final shouldContinue = await showDialog<bool>(
@@ -236,20 +298,47 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
                         );
                         
                         // If user cancels or closes dialog, don't proceed
-                        if (shouldContinue != true) return;
+                        if (shouldContinue != true) {
+                          AppLogger.d('TripConfirmScreen', 'User cancelled dialog or selected "Hủy"');
+                          return;
+                        }
+                        AppLogger.d('TripConfirmScreen', 'User selected "Tiếp tục tạo"');
                       }
+
+                      // Save draft plan BEFORE navigating to WaitingScreen
+                      print('🟢 [TripConfirmScreen] Saving draft plan before route selection...');
+                      AppLogger.d('TripConfirmScreen', 'Saving draft plan before route selection...');
+                      
+                      await tripProvider.saveTripRequest();
+                      
+                      print('🟢 [TripConfirmScreen] Draft plan saved successfully');
+                      AppLogger.d('TripConfirmScreen', 'Draft plan saved successfully');
 
                       // Capture mounted before async gap
                       final isMountedAfterDialogs = mounted;
                       
-                      // Start the preference-matching flow without saving a draft here.
-                      // The plan will be created when the user confirms a route.
+                      // Navigate to route selection
                       if (!isMountedAfterDialogs) return;
-                      await Navigator.push(
+                      
+                      print('🟢 [TripConfirmScreen] Navigating to WaitingScreen...');
+                      AppLogger.d('TripConfirmScreen', 'Navigating to WaitingScreen...');
+                      
+                      final result = await Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => const WaitingScreen()),
                       );
+                      
+                      print('🟢 [TripConfirmScreen] Returned from WaitingScreen, result: $result');
+                      AppLogger.d('TripConfirmScreen', 'Returned from WaitingScreen');
+                      
+                      // Check if route was confirmed
+                      if (tripProvider.routeConfirmed) {
+                        print('🟢 [TripConfirmScreen] ✅ Route was confirmed, draft plan kept');
+                      } else {
+                        print('🟢 [TripConfirmScreen] ⚠️ User returned without confirming route (draft plan kept for now)');
+                      }
                     } catch (e) {
+                      AppLogger.e('TripConfirmScreen', 'Error in onPressed: ${e.toString()}');
                       if (mounted) NotificationService.showError('Không thể bắt đầu tìm lộ trình: $e');
                     }
                   },

@@ -119,8 +119,43 @@ class SupabaseDbService {
       'personal_interests': personalInterests,
     };
 
-    final res = await _client.from('plans').insert(payload).select().single();
-    return Map<String, dynamic>.from(res);
+    print('\n🔴🔴🔴 [SupabaseDb] === START createPlan ===');
+    print('🔴 [SupabaseDb] User ID: $uid');
+    print('🔴 [SupabaseDb] Plan Name: $name');
+    print('🔴 [SupabaseDb] Route ID: $routeId');
+    print('🔴 [SupabaseDb] Full Payload: $payload');
+    AppLogger.d('SupabaseDb', '=== START createPlan ===');
+    AppLogger.d('SupabaseDb', 'User ID: $uid');
+    AppLogger.d('SupabaseDb', 'Plan Name: $name');
+    AppLogger.d('SupabaseDb', 'Route ID: $routeId');
+    AppLogger.d('SupabaseDb', 'Location: $location');
+    AppLogger.d('SupabaseDb', 'Rest Type: $restType');
+    AppLogger.d('SupabaseDb', 'Group Size: $groupSize');
+    AppLogger.d('SupabaseDb', 'Start Date: $startDate');
+    AppLogger.d('SupabaseDb', 'Duration Days: $durationDays');
+    AppLogger.d('SupabaseDb', 'Difficulty: $difficulty');
+    AppLogger.d('SupabaseDb', 'Personal Interests: $personalInterests');
+    AppLogger.d('SupabaseDb', 'Full Payload: $payload');
+
+    try {
+      AppLogger.d('SupabaseDb', 'Inserting into plans table...');
+      final res = await _client.from('plans').insert(payload).select().single();
+      
+      print('🔴 [SupabaseDb] ✅ Insert successful!');
+      print('🔴 [SupabaseDb] Response: $res');
+      print('🔴 [SupabaseDb] === END createPlan SUCCESS ===\n');
+      AppLogger.d('SupabaseDb', 'Insert successful!');
+      AppLogger.d('SupabaseDb', 'Response: $res');
+      AppLogger.d('SupabaseDb', '=== END createPlan SUCCESS ===');
+      
+      return Map<String, dynamic>.from(res);
+    } catch (e) {
+      print('🔴 [SupabaseDb] ❌ ERROR in createPlan: ${e.toString()}');
+      print('🔴 [SupabaseDb] Payload was: $payload\n');
+      AppLogger.e('SupabaseDb', '=== ERROR in createPlan: ${e.toString()} ===');
+      AppLogger.e('SupabaseDb', 'Payload was: $payload');
+      rethrow;
+    }
   }
 
   // [MERGED] From 'HEAD': Critical for AI PEC flow
@@ -217,7 +252,12 @@ class SupabaseDbService {
 
   Future<bool> checkPlanNameExists(String name) async {
     final uid = _uid;
-    if (uid == null) return false;
+    if (uid == null) {
+      AppLogger.d('SupabaseDb', 'checkPlanNameExists: User not signed in');
+      return false;
+    }
+    
+    AppLogger.d('SupabaseDb', 'Checking if plan name exists: "$name" for user: $uid');
     
     final res = await _client
         .from('plans')
@@ -226,7 +266,10 @@ class SupabaseDbService {
         .eq('name', name)
         .maybeSingle();
     
-    return res != null;
+    final exists = res != null;
+    AppLogger.d('SupabaseDb', 'Plan name "$name" exists: $exists (result: $res)');
+    
+    return exists;
   }
 
   Future<Map<String, dynamic>> saveHistoryInput(String name, Map<String, dynamic> payload) async {

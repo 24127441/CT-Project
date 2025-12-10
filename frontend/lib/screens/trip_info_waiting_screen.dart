@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/trip_provider.dart';
 import '../features/preference_matching/models/route_model.dart';
 import '../features/preference_matching/screen/preference_matching_page.dart';
+import '../utils/logger.dart';
 class WaitingScreen extends StatefulWidget {
   const WaitingScreen({super.key});
 
@@ -18,28 +19,33 @@ class _WaitingScreenState extends State<WaitingScreen> {
     super.initState();
     _fetchData();
   }
-
   Future<void> _fetchData() async {
     try {
+      print('\n🔵🔵🔵 [WaitingScreen] === START _fetchData ===');
+      AppLogger.d('WaitingScreen', '=== START _fetchData ===');
       if (!mounted) return;
 
+      AppLogger.d('WaitingScreen', 'Calling fetchSuggestedRoutes...');
       // Fetch suggested routes from provider
       final List<RouteModel> routes = await context.read<TripProvider>().fetchSuggestedRoutes();
 
+      AppLogger.d('WaitingScreen', 'Fetched ${routes.length} routes successfully');
       if (!mounted) return;
 
+      AppLogger.d('WaitingScreen', 'Navigating to PreferenceMatchingPage with ${routes.length} routes');
       // Navigate to preference matching page with fetched routes
       await Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => PreferenceMatchingPage(routes: routes),
         ),
       );
+      AppLogger.d('WaitingScreen', '=== END _fetchData SUCCESS ===');
 
     } catch (error) {
+      AppLogger.e('WaitingScreen', '=== ERROR in _fetchData: $error ===');
       if (!mounted) return;
       
       // Show error dialog
-      if (!mounted) return;
       try {
         await showDialog<void>(
           context: context,
