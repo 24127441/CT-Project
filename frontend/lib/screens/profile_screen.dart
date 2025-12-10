@@ -548,7 +548,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text('Phát triển bởi: ', style: TextStyle(color: Colors.grey)),
-                          Text('Trek Guide Team', style: TextStyle(fontWeight: FontWeight.w600)),
+                          Text('Five-Point-Crew', style: TextStyle(fontWeight: FontWeight.w600)),
                         ],
                       ),
                     ],
