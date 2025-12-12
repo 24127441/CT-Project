@@ -2,8 +2,6 @@
 import 'dart:convert';
 
 import 'dart:math';
-import 'dart:ui' as ui;
-import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
@@ -30,7 +28,19 @@ import 'package:latlong2/latlong.dart' as fcoords; // Toạ độ cho 2D Map
 import 'package:fl_chart/fl_chart.dart'; // Biểu đồ
 
 const kBgColor = Color(0xFFF8F6F2);
-const kPrimaryGreen = Color(0xFF38C148);
+const kPrimaryGreen = Color(0xFF425E3C);
+
+class InteractivePoint {
+  final fcoords.LatLng coordinate; // Tọa độ (để vẽ marker trên Map)
+  final double elevation;          // Độ cao (trục Y Chart)
+  final double distance;           // Khoảng cách từ điểm xuất phát (trục X Chart)
+
+  InteractivePoint({
+    required this.coordinate,
+    required this.elevation,
+    required this.distance,
+  });
+}
 
 class TripDashboard extends StatefulWidget {
   final int? planId;
@@ -169,10 +179,10 @@ class _TripDashboardState extends State<TripDashboard> {
 
     setState(() => _isLoadingNote = true);
 
-      final raw = await _geminiService.generateRouteNote(
+    final raw = await _geminiService.generateRouteNote(
         route.name ?? '',
         plan.location
-      );
+    );
 
     String display = raw;
     // Defensive: AI service may return structured JSON (e.g. { "note": "..." })
@@ -302,18 +312,18 @@ class _TripDashboardState extends State<TripDashboard> {
       }
 
       // Update State: Plan đã tải xong
-        setState(() => _latestPlan = targetPlan);
+      setState(() => _latestPlan = targetPlan);
 
-        // Load persisted notes for this plan (if available)
-        if (targetPlan != null && targetPlan.id != null) {
-          try {
-            await _loadNotesForPlan(targetPlan.id!);
-          } catch (e) {
-            AppLogger.e('TripDashboard', 'Error loading notes after plan load: ${e.toString()}');
-          }
+      // Load persisted notes for this plan (if available)
+      if (targetPlan != null && targetPlan.id != null) {
+        try {
+          await _loadNotesForPlan(targetPlan.id!);
+        } catch (e) {
+          AppLogger.e('TripDashboard', 'Error loading notes after plan load: ${e.toString()}');
         }
+      }
 
-        if (targetPlan != null) {
+      if (targetPlan != null) {
         _fetchEquipmentDetails(targetPlan);
         // Check weather and possibly save dangers snapshot
         dynamic returnedSnapshot;
@@ -331,7 +341,7 @@ class _TripDashboardState extends State<TripDashboard> {
           dynamic snapshot = returnedSnapshot;
           final pid = _latestPlan?.id;
           AppLogger.d('TripDashboard', 'DEBUG _initSafetyCheck: returnedSnapshot=$returnedSnapshot, pid=$pid');
-          
+
           if (snapshot == null) {
             AppLogger.d('TripDashboard', 'DEBUG: snapshot is null, fetching from DB');
             if (pid != null) {
@@ -401,17 +411,17 @@ class _TripDashboardState extends State<TripDashboard> {
     // If snapshot is a map, ensure every danger key has been acknowledged
     if (snapshot is Map) {
       // Skip metadata keys
-      final dangerKeys = snapshot.keys.where((k) => 
-        k.toString() != 'source' && 
-        k.toString() != 'latitude' && 
-        k.toString() != 'longitude' && 
-        k.toString() != 'start_date' && 
-        k.toString() != 'end_date' && 
-        k.toString() != 'raw'
+      final dangerKeys = snapshot.keys.where((k) =>
+      k.toString() != 'source' &&
+          k.toString() != 'latitude' &&
+          k.toString() != 'longitude' &&
+          k.toString() != 'start_date' &&
+          k.toString() != 'end_date' &&
+          k.toString() != 'raw'
       ).toList();
-      
+
       if (dangerKeys.isEmpty) return true; // No actual dangers
-      
+
       for (final k in dangerKeys) {
         final key = _dangerStorageKey(planId, k.toString());
         if (prefs.getBool(key) != true) return false;
@@ -461,13 +471,13 @@ class _TripDashboardState extends State<TripDashboard> {
 
   Future<void> _showDangerWarning(NavigatorState navigator, dynamic snapshot, String message) async {
     if (!mounted) { return; }
-    
+
     final pid = _latestPlan?.id;
     if (pid == null) return;
-    
+
     // Build list of danger entries
     final List<MapEntry<String, Map<String, String>>> dangerEntries = [];
-    
+
     if (snapshot is Map && snapshot['dangers'] is List) {
       final List dangers = snapshot['dangers'] as List;
       for (var i = 0; i < dangers.length; i++) {
@@ -486,13 +496,13 @@ class _TripDashboardState extends State<TripDashboard> {
         'extreme_heat': 'Nắng nóng cực độ',
         'extreme_cold': 'Lạnh cực độ',
       };
-      
+
       snapshot.forEach((k, v) {
         final keyStr = k.toString();
         if (v == true && weatherDangerMap.containsKey(keyStr)) {
           dangerEntries.add(MapEntry(keyStr, {'name': weatherDangerMap[keyStr]!, 'description': ''}));
         } else if (keyStr != 'source' && keyStr != 'latitude' && keyStr != 'longitude' &&
-                   keyStr != 'start_date' && keyStr != 'end_date' && keyStr != 'raw' && v != null) {
+            keyStr != 'start_date' && keyStr != 'end_date' && keyStr != 'raw' && v != null) {
           final label = dangerLabelForKey(keyStr);
           dangerEntries.add(MapEntry(keyStr, {'name': label, 'description': v.toString()}));
         }
@@ -509,7 +519,7 @@ class _TripDashboardState extends State<TripDashboard> {
         }
       }
     }
-    
+
     // If no structured dangers found, show simple message dialog
     if (dangerEntries.isEmpty) {
       await showDialog<void>(
@@ -563,7 +573,7 @@ class _TripDashboardState extends State<TripDashboard> {
       );
       return;
     }
-    
+
     // Show dialog with individual danger acknowledgments
     await showDialog<void>(
       context: navigator.context,
@@ -602,7 +612,7 @@ class _TripDashboardState extends State<TripDashboard> {
                         ),
                       ),
                     ),
-                    
+
                     // Danger list
                     Flexible(
                       child: FutureBuilder<Map<String, bool>>(
@@ -611,10 +621,10 @@ class _TripDashboardState extends State<TripDashboard> {
                           if (!ackSnapshot.hasData) {
                             return const Center(child: CircularProgressIndicator());
                           }
-                          
+
                           final ackMap = ackSnapshot.data!;
                           final allAcknowledged = dangerEntries.every((e) => ackMap[e.key] == true);
-                          
+
                           return Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -628,7 +638,7 @@ class _TripDashboardState extends State<TripDashboard> {
                                     final entry = dangerEntries[idx];
                                     final dangerData = entry.value;
                                     final isAcked = ackMap[entry.key] ?? false;
-                                    
+
                                     return CheckboxListTile(
                                       value: isAcked,
                                       onChanged: (bool? value) async {
@@ -650,19 +660,19 @@ class _TripDashboardState extends State<TripDashboard> {
                                       ),
                                       subtitle: dangerData['description']!.isNotEmpty
                                           ? Text(
-                                              dangerData['description']!,
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                color: isAcked ? Colors.grey : Colors.black54,
-                                              ),
-                                            )
+                                        dangerData['description']!,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: isAcked ? Colors.grey : Colors.black54,
+                                        ),
+                                      )
                                           : null,
                                       controlAffinity: ListTileControlAffinity.leading,
                                     );
                                   },
                                 ),
                               ),
-                              
+
                               // Bottom action bar
                               Container(
                                 padding: const EdgeInsets.all(16),
@@ -684,10 +694,10 @@ class _TripDashboardState extends State<TripDashboard> {
                                     ElevatedButton(
                                       onPressed: allAcknowledged
                                           ? () async {
-                                              await _acknowledgePlan(pid);
-                                              if (!mounted) return;
-                                              navigator.pop();
-                                            }
+                                        await _acknowledgePlan(pid);
+                                        if (!mounted) return;
+                                        navigator.pop();
+                                      }
                                           : null,
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: kPrimaryGreen,
@@ -720,7 +730,7 @@ class _TripDashboardState extends State<TripDashboard> {
       },
     );
   }
-  
+
   Future<Map<String, bool>> _loadDangerAcknowledgments(int planId, List<MapEntry<String, Map<String, String>>> entries) async {
     final Map<String, bool> ackMap = {};
     for (final entry in entries) {
@@ -735,7 +745,7 @@ class _TripDashboardState extends State<TripDashboard> {
   /// Handles nested structures with 'dangers' array or direct danger list
   String _formatDangerSnapshot(dynamic snapshot) {
     AppLogger.d('TripDashboard', 'DEBUG _formatDangerSnapshot called with: ${snapshot.runtimeType} = $snapshot');
-    
+
     if (snapshot == null) {
       AppLogger.d('TripDashboard', 'DEBUG: snapshot is null, returning "Không có cảnh báo"');
       return 'Không có cảnh báo.';
@@ -744,7 +754,7 @@ class _TripDashboardState extends State<TripDashboard> {
     // If it's a Map, check for 'dangers' key first
     if (snapshot is Map) {
       AppLogger.d('TripDashboard', 'DEBUG: snapshot is Map with keys: ${snapshot.keys.toList()}');
-      
+
       // Check if there's a 'dangers' array with structured data
       if (snapshot['dangers'] is List) {
         AppLogger.d('TripDashboard', 'DEBUG: Found dangers array');
@@ -767,7 +777,7 @@ class _TripDashboardState extends State<TripDashboard> {
       // Otherwise format as key-value pairs
       AppLogger.d('TripDashboard', 'DEBUG: No dangers array, formatting as key-value pairs');
       final parts = <String>[];
-      
+
       // Map weather-based danger keys to Vietnamese labels
       final weatherDangerMap = {
         'heavy_rain': 'Mưa lớn',
@@ -775,13 +785,13 @@ class _TripDashboardState extends State<TripDashboard> {
         'extreme_heat': 'Nắng nóng cực độ',
         'extreme_cold': 'Lạnh cực độ',
       };
-      
+
       snapshot.forEach((k, v) {
         if (v == true && weatherDangerMap.containsKey(k)) {
           parts.add('• ${weatherDangerMap[k]}');
         }
       });
-      
+
       // If no weather dangers, try custom danger keys
       if (parts.isEmpty) {
         snapshot.forEach((k, v) {
@@ -797,7 +807,7 @@ class _TripDashboardState extends State<TripDashboard> {
           }
         });
       }
-      
+
       final result = parts.isNotEmpty ? parts.join('\n') : 'Không có cảnh báo.';
       AppLogger.d('TripDashboard', 'DEBUG: Formatted key-value result: $result');
       return result;
@@ -831,7 +841,7 @@ class _TripDashboardState extends State<TripDashboard> {
     try {
       final pid = _latestPlan?.id;
       AppLogger.d('TripDashboard', 'DEBUG _showDangerViewer: pid=$pid');
-      
+
       // Get raw snapshot from database (not pre-formatted)
       dynamic snapshot;
       if (pid != null) {
@@ -850,15 +860,15 @@ class _TripDashboardState extends State<TripDashboard> {
         snapshot = res?['dangers_snapshot'];
         AppLogger.d('TripDashboard', 'DEBUG: latest plan dangers_snapshot=$snapshot');
       }
-      
+
       AppLogger.d('TripDashboard', 'DEBUG: Raw snapshot type=${snapshot.runtimeType}, value=$snapshot');
-      
+
       // Format for display using the same method as the warning popup
       final message = _formatDangerSnapshot(snapshot);
       AppLogger.d('TripDashboard', 'DEBUG: Formatted message=$message');
-      
+
       final List<MapEntry<String, dynamic>> entries = [];
-      
+
       // Build entries list for detailed view
       if (snapshot is Map) {
         // Check for 'dangers' array first (structured format)
@@ -877,7 +887,7 @@ class _TripDashboardState extends State<TripDashboard> {
           for (final e in snapshot.entries) {
             // Skip metadata fields
             final key = e.key.toString();
-            if (key != 'source' && key != 'latitude' && key != 'longitude' && 
+            if (key != 'source' && key != 'latitude' && key != 'longitude' &&
                 key != 'start_date' && key != 'end_date' && key != 'raw') {
               entries.add(MapEntry(key, e.value));
             }
@@ -890,7 +900,7 @@ class _TripDashboardState extends State<TripDashboard> {
       } else if (snapshot != null) {
         entries.add(MapEntry('message', snapshot));
       }
-      
+
       AppLogger.d('TripDashboard', 'DEBUG: entries count=${entries.length}');
 
       final Map<String, bool> ackMap = {};
@@ -939,11 +949,11 @@ class _TripDashboardState extends State<TripDashboard> {
                                 final val = e.value;
                                 final reviewed = ackMap[e.key] ?? false;
                                 final color = reviewed ? Colors.amber : Colors.redAccent;
-                                
+
                                 // Format label and subtitle based on danger type
                                 String label;
                                 String? subtitle;
-                                
+
                                 if (val is Map && val.containsKey('name')) {
                                   // Structured danger with name/description
                                   label = val['name']?.toString() ?? 'Nguy hiểm không xác định';
@@ -957,9 +967,9 @@ class _TripDashboardState extends State<TripDashboard> {
                                   label = dangerLabelForKey(e.key);
                                   subtitle = val?.toString();
                                 }
-                                
+
                                 AppLogger.d('TripDashboard', 'DEBUG: Entry $idx - label="$label", subtitle="$subtitle"');
-                                
+
                                 return ListTile(
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                   leading: CircleAvatar(radius: 10, backgroundColor: color),
@@ -1576,39 +1586,26 @@ class _RouteTab extends StatefulWidget {
   final String? aiNote;
   final bool isLoadingNote;
 
-  const _RouteTab({
-    super.key,
-    this.plan,
-    this.aiNote,
-    this.isLoadingNote = false
-  });
+  const _RouteTab({super.key, this.plan, this.aiNote, this.isLoadingNote = false});
 
   @override
   State<_RouteTab> createState() => _RouteTabState();
 }
 
 class _RouteTabState extends State<_RouteTab> with AutomaticKeepAliveClientMixin {
-  // --- Controller & State ---
   MapLibreMapController? map3DController;
   final fmap.MapController map2DController = fmap.MapController();
-
   bool _is3DMode = false;
   bool _isMapLoading = true;
 
-  // MapTiler API key: prefer --dart-define, else flutter_dotenv
-  final String _apiKey = (() {
-    const fromDefine = String.fromEnvironment('MAPTILER_KEY');
-    if (fromDefine.isNotEmpty) return fromDefine;
-    return dotenv.env['MAPTILER_KEY'] ?? 'your_maptiler_key_here';
-  })();
-
+  final String _apiKey = dotenv.env['MAPTILER_KEY'] ?? 'your_key';
   String get _style3DUrl => "https://api.maptiler.com/maps/outdoor-v2/style.json?key=$_apiKey";
 
-  // Dữ liệu
-  List<LatLng> _coords3D = []; // LatLng của MapLibre
-  List<fcoords.LatLng> _coords2D = []; // LatLng của latlong2
+  List<LatLng> _coords3D = [];
+  List<fcoords.LatLng> _coords2D = [];
   List<Map<String, dynamic>> _waypointsData = [];
-  List<FlSpot> _elevationSpots = [];
+  List<InteractivePoint> _interactivePoints = [];
+  int? _hoverIndex;
 
   @override
   bool get wantKeepAlive => true;
@@ -1619,14 +1616,10 @@ class _RouteTabState extends State<_RouteTab> with AutomaticKeepAliveClientMixin
     _prepareData();
   }
 
-  // 🔥 QUAN TRỌNG: Lắng nghe sự thay đổi của Plan (Khi load xong)
   @override
   void didUpdateWidget(covariant _RouteTab oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Nếu plan thay đổi (từ null -> có data), chạy lại prepareData
-    if (widget.plan?.id != oldWidget.plan?.id) {
-      _prepareData();
-    }
+    if (widget.plan?.id != oldWidget.plan?.id) _prepareData();
   }
 
   Future<void> _prepareData() async {
@@ -1634,619 +1627,289 @@ class _RouteTabState extends State<_RouteTab> with AutomaticKeepAliveClientMixin
       final routes = widget.plan?.routes ?? [];
       int? routeId = routes.isNotEmpty ? routes.first.id : null;
 
-      // Nếu không có Route ID (Plan null), chưa làm gì cả (chờ data)
       if (routeId == null) {
-        if (widget.plan != null) {
-          // Plan có nhưng route rỗng -> Dùng Fake
-          _useFakeData();
-        }
+        if (widget.plan != null) _useFakeData();
         return;
       }
 
-      List<dynamic> rawCoords = [];
-
-      // A. Lấy tọa độ từ DB
       final supabase = Supabase.instance.client;
-      final routeResponse = await supabase
-          .from('routes')
-          .select('path_coordinates')
-          .eq('id', routeId)
-          .maybeSingle();
+      final wptResponse = await supabase.from('route_waypoints').select('*').eq('route_id', routeId);
+      final routeResponse = await supabase.from('routes').select('path_coordinates').eq('id', routeId).maybeSingle();
 
+      List<fcoords.LatLng> rawPoints = [];
       if (routeResponse != null && routeResponse['path_coordinates'] != null) {
-        rawCoords = routeResponse['path_coordinates'];
+        final List<dynamic> rawCoords = routeResponse['path_coordinates'];
+        rawPoints = rawCoords.map((c) => fcoords.LatLng(c[0].toDouble(), c[1].toDouble())).toList();
       }
 
-      // Fallback
-      if (rawCoords.isEmpty) {
-        _useFakeData();
+      if (rawPoints.isEmpty) { _useFakeData(); return; }
+
+      List<fcoords.LatLng> detailedPath = rawPoints;
+      if (rawPoints.length >= 2) detailedPath = await _getDetailedPathFromOSRM(rawPoints);
+
+      // --- FETCH REAL ELEVATION ---
+      List<InteractivePoint> finalPoints = [];
+      final sampledForApi = _sampleCoordinates(detailedPath, 80);
+      final realElevations = await _getElevationsFromApi(sampledForApi);
+
+      if (realElevations.isNotEmpty && realElevations.length == sampledForApi.length) {
+        double currentDistance = 0;
+        const fcoords.Distance distanceCalc = fcoords.Distance();
+        for (int i = 0; i < sampledForApi.length; i++) {
+          if (i > 0) currentDistance += distanceCalc.as(fcoords.LengthUnit.Kilometer, sampledForApi[i-1], sampledForApi[i]);
+          finalPoints.add(InteractivePoint(coordinate: sampledForApi[i], elevation: realElevations[i], distance: currentDistance));
+        }
+      } else {
+        // Fallback to simulated
+        _generateSimulatedPoints(detailedPath, widget.plan?.routes.firstOrNull?.elevationGainM ?? 500, seedId: routeId);
+        if (mounted) setState(() { _coords2D = detailedPath; _coords3D = detailedPath.map((c) => LatLng(c.latitude, c.longitude)).toList(); _waypointsData = List<Map<String, dynamic>>.from(wptResponse); _isMapLoading = false; });
         return;
       }
 
-      // B. Cập nhật State
       if (mounted) {
         setState(() {
-          _coords3D = rawCoords.map((c) => LatLng(c[0].toDouble(), c[1].toDouble())).toList();
-          _coords2D = rawCoords.map((c) => fcoords.LatLng(c[0].toDouble(), c[1].toDouble())).toList();
-          _isMapLoading = false;
-        });
-
-        _generateSimulatedElevation(
-            widget.plan?.routes.firstOrNull?.distanceKm ?? 10,
-            widget.plan?.routes.firstOrNull?.elevationGainM ?? 1600
-        );
-      }
-
-      // C. Lấy Waypoints
-      final wptResponse = await supabase
-          .from('route_waypoints')
-          .select('*')
-          .eq('route_id', routeId);
-
-      if (mounted) {
-        setState(() {
+          _coords2D = detailedPath;
+          _coords3D = detailedPath.map((c) => LatLng(c.latitude, c.longitude)).toList();
           _waypointsData = List<Map<String, dynamic>>.from(wptResponse);
+          _interactivePoints = finalPoints;
+          _isMapLoading = false;
         });
       }
     } catch (e) {
-      // _prepareData error suppressed to avoid noisy logs
       if (mounted) setState(() => _isMapLoading = false);
     }
   }
 
-  void _useFakeData() {
-    final fake = [
-      [22.335, 103.840], [22.338, 103.842], [22.342, 103.845],
-      [22.345, 103.848], [22.340, 103.855], [22.330, 103.860],
-    ];
-    setState(() {
-      _coords3D = fake.map((c) => LatLng(c[0], c[1])).toList();
-      _coords2D = fake.map((c) => fcoords.LatLng(c[0], c[1])).toList();
-      _isMapLoading = false;
-    });
-  }
-
-  // --- 2. CẤU HÌNH MAP 3D (MapLibre) ---
-  void _onMap3DCreated(MapLibreMapController controller) {
-    map3DController = controller;
-  }
-
-  Future<void> _onStyle3DLoaded() async {
-    if (map3DController == null || _coords3D.isEmpty) return;
-
-    // Vẽ đường đỏ
-    await map3DController!.addLine(LineOptions(
-      geometry: _coords3D,
-      lineColor: "#ff0000",
-      lineWidth: 4.0,
-      lineOpacity: 0.9,
-    ));
-
-    // Camera animate
-    await map3DController!.animateCamera(CameraUpdate.newLatLngBounds(
-        _bounds3D(_coords3D), left: 50, right: 50, top: 50, bottom: 50
-    ));
-
-    // Tilt hiệu ứng 3D
-    await Future.delayed(const Duration(milliseconds: 500));
-    await map3DController!.animateCamera(CameraUpdate.tiltTo(60.0));
-
-    // Thêm các marker 3D
-    await _add3DMarkers();
-  }
-
-  Future<void> _add3DMarkers() async {
-    await map3DController!.addImage("icon-summit", await _createMarkerImage(Icons.terrain, Colors.brown));
-    await map3DController!.addImage("icon-water", await _createMarkerImage(Icons.water_drop, Colors.blue));
-    await map3DController!.addImage("icon-danger", await _createMarkerImage(Icons.warning_rounded, Colors.red));
-    await map3DController!.addImage("icon-camp", await _createMarkerImage(Icons.night_shelter, Colors.green));
-
-    // Start/End icons 3D
-    await map3DController!.addImage("icon-start", await _createMarkerImage(Icons.circle, Colors.greenAccent));
-    await map3DController!.addImage("icon-end", await _createMarkerImage(Icons.flag, Colors.redAccent));
-
-    for (var wpt in _waypointsData) {
-      String iconName = "icon-summit";
-      if (wpt['type'] == 'water') iconName = "icon-water";
-      if (wpt['type'] == 'danger') iconName = "icon-danger";
-      if (wpt['type'] == 'campsite') iconName = "icon-camp";
-
-      await map3DController!.addSymbol(SymbolOptions(
-        geometry: LatLng(wpt['latitude'], wpt['longitude']),
-        iconImage: iconName, iconSize: 0.5,
-        textField: wpt['name'], textOffset: const Offset(0, 1.8),
-        textSize: 12.0, textHaloColor: "#ffffff", textHaloWidth: 1.5,
-      ));
+  // --- HELPERS (API, SAMPLING, OSRM) ---
+  List<fcoords.LatLng> _sampleCoordinates(List<fcoords.LatLng> input, int targetCount) {
+    if (input.length <= targetCount) return input;
+    List<fcoords.LatLng> result = [];
+    int step = (input.length / targetCount).floor();
+    for (int i = 0; i < input.length; i += step) {
+      result.add(input[i]);
     }
+    if (result.isNotEmpty && result.last != input.last) result.add(input.last);
+    return result;
+  }
 
-    if (_coords3D.isNotEmpty) {
-      await map3DController!.addSymbol(SymbolOptions(
-        geometry: _coords3D.first, iconImage: "icon-start", iconSize: 0.6,
-        textField: "START", textOffset: const Offset(0, 1.5), textColor: "#00AA00", textHaloColor: "#ffffff", textHaloWidth: 2.0,
-      ));
-      await map3DController!.addSymbol(SymbolOptions(
-        geometry: _coords3D.last, iconImage: "icon-end", iconSize: 0.6,
-        textField: "END", textOffset: const Offset(0, 1.5), textColor: "#FF0000", textHaloColor: "#ffffff", textHaloWidth: 2.0,
-      ));
+  Future<List<double>> _getElevationsFromApi(List<fcoords.LatLng> points) async {
+    const String url = 'https://api.open-elevation.com/api/v1/lookup';
+    Map<String, dynamic> body = {"locations": points.map((p) => {"latitude": p.latitude, "longitude": p.longitude}).toList()};
+    try {
+      final response = await http.post(Uri.parse(url), headers: {"Content-Type": "application/json"}, body: jsonEncode(body));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return (data['results'] as List).map<double>((item) => (item['elevation'] as num).toDouble()).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  Future<List<fcoords.LatLng>> _getDetailedPathFromOSRM(List<fcoords.LatLng> sparsePoints) async {
+    if (sparsePoints.isEmpty) return [];
+    String coordinatesString = sparsePoints.map((p) => "${p.longitude},${p.latitude}").join(';');
+    final String url = "http://router.project-osrm.org/route/v1/foot/$coordinatesString?overview=full&geometries=geojson";
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['routes'] != null && (data['routes'] as List).isNotEmpty) {
+          final geometry = data['routes'][0]['geometry'];
+          final List<dynamic> coords = geometry['coordinates'];
+          return coords.map((c) => fcoords.LatLng(c[1], c[0])).toList();
+        }
+      }
+    } catch (_) {}
+    return sparsePoints;
+  }
+
+  void _generateSimulatedPoints(List<fcoords.LatLng> coords, int maxGain, {int? seedId}) {
+    // (Logic giả lập cũ nếu API lỗi)
+    int seed = seedId ?? 999;
+    List<InteractivePoint> tempPoints = [];
+    double currentDistance = 0;
+    const fcoords.Distance distanceCalc = fcoords.Distance();
+    double startElevation = 500;
+    double effectiveMaxGain = maxGain > 0 ? maxGain.toDouble() : 500.0;
+
+    for (int i = 0; i < coords.length; i++) {
+      if (i > 0) currentDistance += distanceCalc.as(fcoords.LengthUnit.Kilometer, coords[i-1], coords[i]);
+      double progress = i / (coords.length - 1);
+      double mountainShape = sin(progress * pi) * effectiveMaxGain;
+      double pseudoRandom = sin(i * 13.0 + seed) * (effectiveMaxGain * 0.05);
+      double elevation = startElevation + mountainShape + pseudoRandom;
+      tempPoints.add(InteractivePoint(coordinate: coords[i], elevation: elevation, distance: currentDistance));
     }
+    setState(() => _interactivePoints = tempPoints);
   }
 
-  LatLngBounds _bounds3D(List<LatLng> list) {
-    double? minLat, maxLat, minLng, maxLng;
-    for (final latLng in list) {
-      minLat = (minLat == null) ? latLng.latitude : min(minLat, latLng.latitude);
-      maxLat = (maxLat == null) ? latLng.latitude : max(maxLat, latLng.latitude);
-      minLng = (minLng == null) ? latLng.longitude : min(minLng, latLng.longitude);
-      maxLng = (maxLng == null) ? latLng.longitude : max(maxLng, latLng.longitude);
-    }
-    return LatLngBounds(southwest: LatLng(minLat!, minLng!), northeast: LatLng(maxLat!, maxLng!));
-  }
+  void _useFakeData() { setState(() => _isMapLoading = false); }
 
-  Future<Uint8List> _createMarkerImage(IconData iconData, Color bgColor) async {
-    final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
-    final Canvas canvas = Canvas(pictureRecorder);
-    const int size = 100; final double radius = size / 2;
+  // --- CHART WIDGET (FLOATING TOOLTIP) ---
+  Widget _buildElevationChart() {
+    if (_interactivePoints.isEmpty) return const SizedBox(height: 150, child: Center(child: Text("Đang tải độ cao...")));
+    InteractivePoint? activePoint;
+    if (_hoverIndex != null && _hoverIndex! < _interactivePoints.length) activePoint = _interactivePoints[_hoverIndex!];
 
-    final Paint shadowPaint = Paint()..color = Colors.black.withAlpha(102)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5.0);
-    canvas.drawCircle(Offset(radius, radius + 3), radius, shadowPaint);
-
-    final Paint borderPaint = Paint()..color = Colors.white;
-    canvas.drawCircle(Offset(radius, radius), radius, borderPaint);
-
-    final Paint bgPaint = Paint()..color = bgColor;
-    canvas.drawCircle(Offset(radius, radius), radius - 6, bgPaint);
-
-    final TextPainter textPainter = TextPainter(textDirection: ui.TextDirection.ltr);
-    textPainter.text = TextSpan(
-      text: String.fromCharCode(iconData.codePoint),
-      style: TextStyle(fontSize: size * 0.55, fontFamily: iconData.fontFamily, color: Colors.white, fontWeight: FontWeight.bold),
-    );
-    textPainter.layout();
-    textPainter.paint(canvas, Offset(radius - textPainter.width / 2, radius - textPainter.height / 2));
-    final ui.Image image = await pictureRecorder.endRecording().toImage(size, size);
-    final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    return byteData!.buffer.asUint8List();
-  }
-
-  // --- 3. CẤU HÌNH MAP 2D (Flutter Map - ESRI - Giao diện Interactive) ---
-
-  Widget _build2DLabelMarker(String label, IconData icon, Color color) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [const BoxShadow(color: Colors.black26, blurRadius: 4)],
-            border: Border.all(color: color, width: 2),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 14, color: color),
-              const SizedBox(width: 4),
-              Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
-            ],
-          ),
-        ),
-        Icon(Icons.arrow_drop_down, color: color, size: 24),
-      ],
-    );
-  }
-
-  Widget _build2DDetailMarker(Map<String, dynamic> wpt) {
-    Color color = Colors.blue;
-    IconData icon = Icons.place;
-
-    if (wpt['type'] == 'summit') { color = Colors.brown; icon = Icons.terrain; }
-    if (wpt['type'] == 'danger') { color = Colors.red; icon = Icons.warning_rounded; }
-    if (wpt['type'] == 'campsite') { color = Colors.green[700]!; icon = Icons.night_shelter; }
-
-    return GestureDetector(
-      onTap: () {},
-      child: Column(
+    return SizedBox(
+      height: 180,
+      width: double.infinity,
+      child: Stack(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.white.withAlpha(230),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: Colors.grey[300]!),
-            ),
-            child: Text(
-              wpt['name'],
-              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-              maxLines: 1, overflow: TextOverflow.ellipsis,
+          Padding(
+            padding: const EdgeInsets.only(top: 40),
+            child: LineChart(
+              LineChartData(
+                gridData: const FlGridData(show: false),
+                titlesData: const FlTitlesData(show: false),
+                borderData: FlBorderData(show: false),
+                lineTouchData: LineTouchData(
+                  enabled: true, handleBuiltInTouches: true,
+                  touchTooltipData: const LineTouchTooltipData(getTooltipItems: _nullTooltip),
+                  getTouchedSpotIndicator: (barData, spotIndexes) {
+                    return spotIndexes.map((index) => TouchedSpotIndicatorData(
+                      const FlLine(color: Colors.grey, strokeWidth: 1, dashArray: [4, 4]),
+                      FlDotData(getDotPainter: (spot, percent, bar, index) => FlDotCirclePainter(radius: 5, color: Colors.white, strokeWidth: 2, strokeColor: Colors.blueAccent)),
+                    )).toList();
+                  },
+                  touchCallback: (event, response) {
+                    if (response?.lineBarSpots != null && response!.lineBarSpots!.isNotEmpty) {
+                      final index = response.lineBarSpots!.first.spotIndex;
+                      if (_hoverIndex != index) setState(() => _hoverIndex = index);
+                    } else if (event is FlTapUpEvent || event is FlPanEndEvent) {
+                      setState(() => _hoverIndex = null);
+                    }
+                  },
+                ),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: _interactivePoints.map((p) => FlSpot(p.distance, p.elevation)).toList(),
+                    isCurved: true, color: Colors.black87, barWidth: 2, isStrokeCapRound: true, dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(show: true, gradient: LinearGradient(colors: [const Color(0xFF425E3C).withValues(alpha: 0.3), Colors.transparent], begin: Alignment.topCenter, end: Alignment.bottomCenter)),
+                  ),
+                ],
+              ),
             ),
           ),
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
-              boxShadow: [const BoxShadow(color: Colors.black38, blurRadius: 3, offset: Offset(0, 2))],
+          if (activePoint != null)
+            Positioned(
+              top: 0, left: 0, right: 0,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [const BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3))], border: Border.all(color: Colors.grey.shade200)),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    _buildInfoItem("Distance", "${activePoint.distance.toStringAsFixed(1)} km"),
+                    Container(width: 1, height: 24, color: Colors.grey[300], margin: const EdgeInsets.symmetric(horizontal: 16)),
+                    _buildInfoItem("Elevation", "${activePoint.elevation.toStringAsFixed(0)} m"),
+                  ]),
+                ),
+              ),
             ),
-            child: Icon(icon, color: Colors.white, size: 16),
-          ),
         ],
       ),
     );
   }
 
+  Widget _buildInfoItem(String label, String value) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+      Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+      const SizedBox(height: 1),
+      Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87)),
+    ]);
+  }
+
+  // --- MAP WIDGETS ---
+  void _onMap3DCreated(MapLibreMapController controller) { map3DController = controller; }
+  Future<void> _onStyle3DLoaded() async {
+    if (map3DController == null || _coords3D.isEmpty) return;
+    await map3DController!.addLine(LineOptions(geometry: _coords3D, lineColor: "#E91E63", lineWidth: 4.0));
+    await map3DController!.animateCamera(CameraUpdate.newLatLngBounds(_bounds3D(_coords3D), left: 20, right: 20, top: 20, bottom: 20));
+  }
+  LatLngBounds _bounds3D(List<LatLng> list) {
+    double? minLat, maxLat, minLng, maxLng;
+    for (final l in list) { minLat = min(minLat ?? l.latitude, l.latitude); maxLat = max(maxLat ?? l.latitude, l.latitude); minLng = min(minLng ?? l.longitude, l.longitude); maxLng = max(maxLng ?? l.longitude, l.longitude); }
+    return LatLngBounds(southwest: LatLng(minLat!, minLng!), northeast: LatLng(maxLat!, maxLng!));
+  }
+
   Widget _buildMap2D() {
     if (_coords2D.isEmpty) return const Center(child: Text("Không có dữ liệu bản đồ"));
+    fcoords.LatLng? hoverLoc;
+    if (_hoverIndex != null && _interactivePoints.isNotEmpty && _hoverIndex! < _interactivePoints.length) {
+      hoverLoc = _interactivePoints[_hoverIndex!].coordinate;
+    }
 
     return fmap.FlutterMap(
       mapController: map2DController,
-      options: fmap.MapOptions(
-          initialCameraFit: fmap.CameraFit.bounds(
-            bounds: fmap.LatLngBounds.fromPoints(_coords2D),
-            padding: const EdgeInsets.all(40),
-          ),
-          // 🔥 QUAN TRỌNG: Chỉ Zoom khi Map đã sẵn sàng
-          onMapReady: () {
-            if (_coords2D.isNotEmpty) {
-              map2DController.fitCamera(
-                fmap.CameraFit.bounds(
-                  bounds: fmap.LatLngBounds.fromPoints(_coords2D),
-                  padding: const EdgeInsets.all(40),
-                ),
-              );
-            }
-          }
-      ),
+      options: fmap.MapOptions(initialCameraFit: fmap.CameraFit.bounds(bounds: fmap.LatLngBounds.fromPoints(_coords2D), padding: const EdgeInsets.all(40))),
       children: [
-        fmap.TileLayer(
-          // ESRI WORLD TOPO LAYER (Giao diện chuẩn Interactive Map)
-          urlTemplate: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
-          userAgentPackageName: 'com.trekking.app',
-        ),
-        fmap.PolylineLayer(
-          polylines: [
-            fmap.Polyline(points: _coords2D, color: Colors.redAccent, strokeWidth: 4.0),
-          ],
-        ),
-        fmap.MarkerLayer(
-          markers: [
-            fmap.Marker(
-              point: _coords2D.first,
-              width: 100, height: 60,
-              child: _build2DLabelMarker("START", Icons.circle, Colors.green),
-            ),
-            fmap.Marker(
-              point: _coords2D.last,
-              width: 100, height: 60,
-              child: _build2DLabelMarker("END", Icons.flag, Colors.red),
-            ),
-            ..._waypointsData.map((wpt) {
-              return fmap.Marker(
-                point: fcoords.LatLng(wpt['latitude'], wpt['longitude']),
-                width: 120, height: 80,
-                child: _build2DDetailMarker(wpt),
-              );
-            }),
-          ],
-        ),
+        fmap.TileLayer(urlTemplate: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}'),
+        fmap.PolylineLayer(polylines: [fmap.Polyline(points: _coords2D, color: const Color(0xFFE91E63), strokeWidth: 5.0, strokeCap: StrokeCap.round, strokeJoin: StrokeJoin.round)]),
+        fmap.MarkerLayer(markers: [
+          fmap.Marker(point: _coords2D.first, width: 80, height: 50, child: _build2DLabelMarker("START", Icons.circle, const Color(0xFF425E3C))),
+          fmap.Marker(point: _coords2D.last, width: 80, height: 50, child: _build2DLabelMarker("END", Icons.flag, Colors.red)),
+          ..._waypointsData.map((wpt) => fmap.Marker(point: fcoords.LatLng(wpt['latitude'], wpt['longitude']), width: 100, height: 70, child: _build2DDetailMarker(wpt))),
+        ]),
+        if (hoverLoc != null)
+          fmap.MarkerLayer(markers: [fmap.Marker(point: hoverLoc, width: 24, height: 24, child: Container(decoration: BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 3), boxShadow: [const BoxShadow(color: Colors.black38, blurRadius: 4, offset: Offset(0, 2))])))]),
       ],
     );
   }
 
-  void _generateSimulatedElevation(double distKm, int gainM) {
-    final points = 50; final random = Random(); List<FlSpot> spots = [];
-    double currentElevation = 500; double maxGain = gainM.toDouble();
-    for (int i = 0; i < points; i++) {
-      double change = (random.nextDouble() - 0.45) * (maxGain / 8);
-      currentElevation += change; if (currentElevation < 0) currentElevation = 0;
-      double distance = (distKm / points) * i;
-      spots.add(FlSpot(distance, currentElevation));
-    }
-    setState(() {
-      _elevationSpots = spots;
-    });
+  // Helper Markers
+  Widget _build2DLabelMarker(String label, IconData icon, Color color) {
+    return Column(mainAxisSize: MainAxisSize.min, children: [Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: color, width: 2)), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 10, color: color), const SizedBox(width: 4), Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 10))])), Icon(Icons.arrow_drop_down, color: color, size: 20)]);
+  }
+  Widget _build2DDetailMarker(Map<String, dynamic> wpt) {
+    Color color = Colors.blue; IconData icon = Icons.place;
+    if (wpt['type'] == 'summit') { color = Colors.brown; icon = Icons.terrain; }
+    if (wpt['type'] == 'danger') { color = Colors.red; icon = Icons.warning_rounded; }
+    if (wpt['type'] == 'campsite') { color = const Color(0xFF425E3C); icon = Icons.night_shelter; }
+    return GestureDetector(
+      onTap: () {}, // Show modal if needed
+      child: Column(children: [Container(padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2), decoration: BoxDecoration(color: Colors.white.withAlpha(230), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.grey[300]!)), child: Text(wpt['name'], style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold), maxLines: 1)), Container(padding: const EdgeInsets.all(3), decoration: BoxDecoration(color: color, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5)), child: Icon(icon, color: Colors.white, size: 12))]),
+    );
   }
 
-  // --- UI CHÍNH ---
   @override
   Widget build(BuildContext context) {
     super.build(context);
-
     final routes = widget.plan?.routes ?? [];
-    if (widget.plan == null || routes.isEmpty) {
-      // Khi đang load data hoặc plan lỗi
-      return const Center(child: CircularProgressIndicator());
-    }
+    if (widget.plan == null || routes.isEmpty) return const Center(child: CircularProgressIndicator());
     final r = routes.first;
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 80),
       children: [
-        SizedBox(
-          height: 400,
-          child: Stack(
-            children: [
-              if (_isMapLoading)
-                const Center(child: CircularProgressIndicator())
-              else if (_is3DMode)
-                MapLibreMap(
-                  styleString: _style3DUrl,
-                  onMapCreated: _onMap3DCreated,
-                  onStyleLoadedCallback: _onStyle3DLoaded,
-                  initialCameraPosition: const CameraPosition(target: LatLng(21.0, 105.8), zoom: 10.0),
-                  rotateGesturesEnabled: true, tiltGesturesEnabled: true,
-                )
-              else
-                _buildMap2D(),
-
-              // Nút Toggle 2D/3D Style đen
-              Positioned(
-                top: 16, right: 16,
-                child: GestureDetector(
-                  onTap: () => setState(() => _is3DMode = !_is3DMode),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.black87, borderRadius: BorderRadius.circular(30),
-                      boxShadow: [const BoxShadow(color: Colors.black26, blurRadius: 4)],
-                    ),
-                    child: Row(children: [
-                      Icon(_is3DMode ? Icons.map : Icons.view_in_ar, size: 18, color: Colors.white),
-                      const SizedBox(width: 8),
-                      Text(_is3DMode ? "2D" : "3D", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white)),
-                    ]),
-                  ),
-                ),
-              ),
-
-              // Nút Tùy chỉnh (Giữ nguyên vị trí nhưng update style đen)
-              Positioned(
-                top: 16, left: 16,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withAlpha(153),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white30),
-                  ),
-                  child: Row(
-                    children: const [
-                      Icon(Icons.tune, color: Colors.white, size: 16),
-                      SizedBox(width: 6),
-                      Text("Tùy chỉnh", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // 2. INFO SECTION
+        SizedBox(height: 400, child: Stack(children: [
+          if (_isMapLoading) const Center(child: CircularProgressIndicator())
+          else if (_is3DMode) MapLibreMap(styleString: _style3DUrl, onMapCreated: _onMap3DCreated, onStyleLoadedCallback: _onStyle3DLoaded, initialCameraPosition: const CameraPosition(target: LatLng(21.0, 105.8), zoom: 10.0))
+          else _buildMap2D(),
+          Positioned(top: 16, right: 16, child: GestureDetector(onTap: () => setState(() => _is3DMode = !_is3DMode), child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(30)), child: Row(children: [Icon(_is3DMode ? Icons.map : Icons.view_in_ar, size: 18, color: Colors.white), const SizedBox(width: 8), Text(_is3DMode ? "2D" : "3D", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white))])))),
+        ])),
         Container(
           transform: Matrix4.translationValues(0, -20, 0),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
           padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                r.name ?? 'Lộ trình không tên',
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, height: 1.2),
-              ),
-              const SizedBox(height: 8),
-
-              Text(
-                '${r.distanceKm ?? 0} km • ${r.elevationGainM ?? 0} m gain • Est. ${r.durationDays ?? 1} days',
-                style: TextStyle(fontSize: 16, color: Colors.grey[700], fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 24),
-
-              const Text("Biểu đồ độ cao", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 150,
-                width: double.infinity,
-                child: LineChart(
-                  LineChartData(
-                    gridData: const FlGridData(show: false),
-                    titlesData: const FlTitlesData(show: false),
-                    borderData: FlBorderData(show: false),
-                    lineTouchData: LineTouchData(
-                        touchTooltipData: LineTouchTooltipData(
-                          getTooltipItems: (spots) => spots.map((s) => LineTooltipItem('${s.y.toInt()}m', const TextStyle(color: Colors.white))).toList(),
-                        )
-                    ),
-                    lineBarsData: [
-                      LineChartBarData(
-                        spots: _elevationSpots.isNotEmpty ? _elevationSpots : [const FlSpot(0,0), const FlSpot(1,0)],
-                        isCurved: true,
-                        color: Colors.black87,
-                        barWidth: 2,
-                        dotData: const FlDotData(show: false),
-                        belowBarData: BarAreaData(
-                          show: true,
-                          gradient: LinearGradient(
-                            colors: [kPrimaryGreen.withAlpha(77), Colors.white],
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text("0.0 km", style: TextStyle(fontSize: 10, color: Colors.grey)),
-                  Text("${r.distanceKm ?? 10} km", style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                ],
-              ),
-
-              const SizedBox(height: 24),
-
-              Row(
-                children: [
-                  const Icon(Icons.auto_awesome, size: 20, color: Colors.purple),
-                  const SizedBox(width: 8),
-                  const Text("Thông tin AI gợi ý", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              if (widget.isLoadingNote)
-                const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
-              else
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.purple.withAlpha(13),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.purple.withAlpha(26)),
-                  ),
-                  child: Text(
-                    widget.aiNote ?? "Không có thông tin bổ sung.",
-                    style: const TextStyle(fontSize: 15, height: 1.6, color: Colors.black87),
-                  ),
-                ),
-            ],
-          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(r.name ?? 'Lộ trình', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, height: 1.2)),
+            const SizedBox(height: 8),
+            Text('${r.distanceKm ?? 0} km • ${r.elevationGainM ?? 0} m gain', style: TextStyle(fontSize: 16, color: Colors.grey[700])),
+            const SizedBox(height: 24),
+            const Text("Biểu đồ độ cao", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
+            _buildElevationChart(),
+            const SizedBox(height: 24),
+            Row(children: const [Icon(Icons.auto_awesome, size: 20, color: Color(0xFF425E3C)), SizedBox(width: 8), Text("Thông tin AI gợi ý", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))]),
+            const SizedBox(height: 12),
+            Container(width: double.infinity, padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Color(0xFF425E3C).withValues(alpha: 0.05), borderRadius: BorderRadius.circular(12)), child: widget.isLoadingNote ? const Center(child: CircularProgressIndicator()) : Text(widget.aiNote ?? "Không có thông tin", style: const TextStyle(fontSize: 15, height: 1.6))),
+          ]),
         ),
       ],
     );
   }
 }
+List<LineTooltipItem?> _nullTooltip(List<LineBarSpot> spots) => List.generate(spots.length, (index) => null);
 
-class _NoteEditorScreen extends StatefulWidget {
-  final String? initialText;
-  const _NoteEditorScreen({this.initialText});
-
-  @override
-  State<_NoteEditorScreen> createState() => _NoteEditorScreenState();
-}
-
-class _NoteEditorScreenState extends State<_NoteEditorScreen> {
-  final TextEditingController _ctrl = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl.text = widget.initialText ?? '';
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Thêm ghi chú'), backgroundColor: kPrimaryGreen),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(children: [
-          Expanded(child: TextField(controller: _ctrl, maxLines: null, expands: true, decoration: const InputDecoration(hintText: 'Nhập ghi chú...'))),
-          Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Hủy')),
-            const SizedBox(width: 8),
-            ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: kPrimaryGreen),
-                onPressed: () {
-                  final t = _ctrl.text.trim();
-                  Navigator.of(context).pop(t);
-                },
-                child: const Text('Lưu'))
-          ])
-        ]),
-      ),
-    );
-  }
-}
-
-class _NotesTab extends StatelessWidget {
-  final List<String> notes;
-  final void Function(int) onDeleteNote;
-  final void Function(int) onEditNote;
-
-  const _NotesTab({
-    required this.notes,
-    required this.onDeleteNote,
-    required this.onEditNote
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (notes.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: const [
-              Icon(Icons.note_add_outlined, size: 64, color: Colors.black12),
-              SizedBox(height: 12),
-              Text(
-                'Chưa có ghi chú nào.\nNhấn nút + để thêm.',
-                style: TextStyle(fontSize: 16, color: Colors.black54),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 80, left: 16, right: 16, top: 16),
-      itemCount: notes.length,
-      itemBuilder: (context, index) {
-        final note = notes[index];
-        return Dismissible(
-          key: ValueKey('${note}_$index'),
-          direction: DismissDirection.endToStart,
-          onDismissed: (direction) => onDeleteNote(index),
-          background: Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(
-              color: Colors.red,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.only(right: 20),
-            child: const Icon(Icons.delete, color: Colors.white),
-          ),
-          child: GestureDetector(
-            onTap: () => onEditNote(index),
-            child: Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16.0),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withAlpha(13),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  )
-                ],
-              ),
-              child: Text(note, style: const TextStyle(fontSize: 15, color: Colors.black87)),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
+class _NoteEditorScreen extends StatefulWidget { final String? initialText; const _NoteEditorScreen({this.initialText}); @override State<_NoteEditorScreen> createState() => _NoteEditorScreenState(); }
+class _NoteEditorScreenState extends State<_NoteEditorScreen> { final TextEditingController _ctrl = TextEditingController(); @override void initState() { super.initState(); _ctrl.text = widget.initialText ?? ''; } @override Widget build(BuildContext context) { return Scaffold(appBar: AppBar(title: const Text('Thêm ghi chú'), backgroundColor: kPrimaryGreen), body: Padding(padding: const EdgeInsets.all(16.0), child: Column(children: [Expanded(child: TextField(controller: _ctrl, maxLines: null, expands: true, decoration: const InputDecoration(hintText: 'Nhập ghi chú...'))), ElevatedButton(onPressed: () => Navigator.of(context).pop(_ctrl.text.trim()), child: const Text('Lưu'))]))); } }
+class _NotesTab extends StatelessWidget { final List<String> notes; final void Function(int) onDeleteNote; final void Function(int) onEditNote; const _NotesTab({required this.notes, required this.onDeleteNote, required this.onEditNote}); @override Widget build(BuildContext context) { return ListView.builder(itemCount: notes.length, itemBuilder: (context, index) => ListTile(title: Text(notes[index]), trailing: IconButton(icon: const Icon(Icons.delete), onPressed: () => onDeleteNote(index)), onTap: () => onEditNote(index))); } }

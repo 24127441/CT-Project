@@ -14,7 +14,8 @@ void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
     // Truyền isColdStart: false (hoặc true) để giả lập trạng thái cho bài test
-    await tester.pumpWidget(const MyApp(isColdStart: false));
+    // Truyền hasValidSession: true để giả lập session hợp lệ
+    await tester.pumpWidget(const MyApp(isColdStart: false, hasValidSession: true));
 
     // Verify that our counter starts at 0.
     expect(find.text('0'), findsOneWidget);
