@@ -14,6 +14,16 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             'password': {'write_only': True},
         }
 
+    def validate_email(self, value):
+        """Check if email already exists in the system"""
+        # Normalize email to lowercase for comparison
+        email = value.lower().strip()
+        
+        if User.objects.filter(email__iexact=email).exists():
+            raise serializers.ValidationError("Email này đã được đăng ký. Vui lòng sử dụng email khác hoặc đăng nhập.")
+        
+        return email
+
     def validate(self, data):
         if data['password'] != data['password_confirm']:
             raise serializers.ValidationError("Mật khẩu không khớp.")

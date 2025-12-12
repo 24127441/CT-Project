@@ -55,7 +55,7 @@ class WelcomeView extends StatelessWidget {
                           width: 160, 
                           height: 160, 
                           color: Colors.white,
-                          child: const Icon(Icons.terrain, size: 80, color: Color(0xFF2E7D32)),
+                          child: const Icon(Icons.terrain, size: 80, color: Color(0xFF425E3C)),
                         );
                       },
                     ),
@@ -100,7 +100,7 @@ class WelcomeView extends StatelessWidget {
                       Navigator.push(context, MaterialPageRoute(builder: (context) => const SignupScreen()));
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF56AB2F),
+                      backgroundColor: const Color(0xFF425E3C),
                       foregroundColor: Colors.white,
                       elevation: 4,
                       shadowColor: Colors.greenAccent.withValues(alpha: 0.4),
