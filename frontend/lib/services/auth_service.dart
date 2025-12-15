@@ -4,10 +4,6 @@ import 'package:flutter/foundation.dart' show debugPrint;
 class AuthService {
   final _client = Supabase.instance.client;
 
-  // ------------------
-  // Public API
-  // ------------------
-
   /// Check if email already exists using Supabase RPC function
   Future<bool> emailExists(String email) async {
     try {
@@ -57,37 +53,27 @@ class AuthService {
 
   Session? get currentSession => _client.auth.currentSession;
 
-  /// Gửi OTP
   Future<void> sendEmailOtp(String email) async {
     await _client.auth.signInWithOtp(email: email);
   }
 
-  /// Xác thực OTP (Logic đã được sửa lại chuẩn cho SDK v2)
   Future<void> verifyEmailOtp(String email, String token) async {
     try {
-      // CÁCH 1: Dùng hàm chuẩn của SDK v2
-      // Hàm này tự động lưu session nếu thành công
       final response = await _client.auth.verifyOTP(
         token: token,
         type: OtpType.email,
         email: email,
       );
 
-      // Kiểm tra xem session đã thực sự có chưa
       if (response.session == null && _client.auth.currentSession == null) {
         throw Exception("SDK Verify OK but Session is NULL");
       }
     } catch (e) {
-      // Nếu Cách 1 lỗi (hoặc SDK không lưu được session), dùng CÁCH 2:
-      // Gọi REST API thủ công và ép lưu Session
+
       debugPrint("SDK Verify failed or no session, falling back to REST: $e");
       await _verifyEmailOtpRest(email, token);
     }
   }
-
-  // ------------------
-  // Private Helpers
-  // ------------------
 
   Future<void> _verifyEmailOtpRest(String email, String token) async {
     // This method is no longer needed - verifyOTP from SDK is sufficient

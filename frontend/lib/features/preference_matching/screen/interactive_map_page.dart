@@ -565,7 +565,7 @@ class _InteractiveMapPageState extends State<InteractiveMapPage> {
       await achievementProvider.refreshAchievements();
 
       if (mounted) {
-        NotificationService.showSuccess('Đã cập nhật chuyến đi.');
+        NotificationService.showSuccess('Lưu chuyến đi thành công');
         navigator.push(MaterialPageRoute(builder: (_) => const PECScreen()));
       }
     } catch (e) {

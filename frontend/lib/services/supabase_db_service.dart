@@ -7,8 +7,6 @@ class SupabaseDbService {
 
   String? get _uid => _client.auth.currentUser?.id;
 
-  // --- 1. ROUTES ---
-
   Future<List<Map<String, dynamic>>> getSuggestedRoutes({
     String? location,
     String? difficulty,
@@ -119,41 +117,13 @@ class SupabaseDbService {
       'personal_interests': personalInterests,
     };
 
-    print('\n🔴🔴🔴 [SupabaseDb] === START createPlan ===');
-    print('🔴 [SupabaseDb] User ID: $uid');
-    print('🔴 [SupabaseDb] Plan Name: $name');
-    print('🔴 [SupabaseDb] Route ID: $routeId');
-    print('🔴 [SupabaseDb] Full Payload: $payload');
-    AppLogger.d('SupabaseDb', '=== START createPlan ===');
-    AppLogger.d('SupabaseDb', 'User ID: $uid');
-    AppLogger.d('SupabaseDb', 'Plan Name: $name');
-    AppLogger.d('SupabaseDb', 'Route ID: $routeId');
-    AppLogger.d('SupabaseDb', 'Location: $location');
-    AppLogger.d('SupabaseDb', 'Rest Type: $restType');
-    AppLogger.d('SupabaseDb', 'Group Size: $groupSize');
-    AppLogger.d('SupabaseDb', 'Start Date: $startDate');
-    AppLogger.d('SupabaseDb', 'Duration Days: $durationDays');
-    AppLogger.d('SupabaseDb', 'Difficulty: $difficulty');
-    AppLogger.d('SupabaseDb', 'Personal Interests: $personalInterests');
-    AppLogger.d('SupabaseDb', 'Full Payload: $payload');
-
     try {
-      AppLogger.d('SupabaseDb', 'Inserting into plans table...');
+      AppLogger.d('SupabaseDb', 'Creating plan: $name in location $location');
       final res = await _client.from('plans').insert(payload).select().single();
-      
-      print('🔴 [SupabaseDb] ✅ Insert successful!');
-      print('🔴 [SupabaseDb] Response: $res');
-      print('🔴 [SupabaseDb] === END createPlan SUCCESS ===\n');
-      AppLogger.d('SupabaseDb', 'Insert successful!');
-      AppLogger.d('SupabaseDb', 'Response: $res');
-      AppLogger.d('SupabaseDb', '=== END createPlan SUCCESS ===');
-      
+      AppLogger.d('SupabaseDb', 'Plan created successfully with ID ${res['id']}');
       return Map<String, dynamic>.from(res);
     } catch (e) {
-      print('🔴 [SupabaseDb] ❌ ERROR in createPlan: ${e.toString()}');
-      print('🔴 [SupabaseDb] Payload was: $payload\n');
-      AppLogger.e('SupabaseDb', '=== ERROR in createPlan: ${e.toString()} ===');
-      AppLogger.e('SupabaseDb', 'Payload was: $payload');
+      AppLogger.e('SupabaseDb', 'Error creating plan: ${e.toString()}');
       rethrow;
     }
   }
@@ -252,12 +222,7 @@ class SupabaseDbService {
 
   Future<bool> checkPlanNameExists(String name) async {
     final uid = _uid;
-    if (uid == null) {
-      AppLogger.d('SupabaseDb', 'checkPlanNameExists: User not signed in');
-      return false;
-    }
-    
-    AppLogger.d('SupabaseDb', 'Checking if plan name exists: "$name" for user: $uid');
+    if (uid == null) return false;
     
     final res = await _client
         .from('plans')
@@ -266,10 +231,7 @@ class SupabaseDbService {
         .eq('name', name)
         .maybeSingle();
     
-    final exists = res != null;
-    AppLogger.d('SupabaseDb', 'Plan name "$name" exists: $exists (result: $res)');
-    
-    return exists;
+    return res != null;
   }
 
   Future<Map<String, dynamic>> saveHistoryInput(String name, Map<String, dynamic> payload) async {
@@ -300,8 +262,6 @@ class SupabaseDbService {
     final res = await _client.from('history_inputs').insert(insertPayload).select().single();
     return Map<String, dynamic>.from(res);
   }
-
-  // --- 5. DANGERS ---
 
   /// Fetch a single plan by id (includes fields like start_date, duration_days, location)
   Future<Map<String, dynamic>?> getPlanById(int planId) async {

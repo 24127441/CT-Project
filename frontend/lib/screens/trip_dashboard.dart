@@ -14,26 +14,24 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../utils/logger.dart';
 
-// --- CÁC SERVICE CỦA BẠN ---
 import '../services/supabase_db_service.dart';
 import '../services/plan_service.dart';
 import '../models/plan.dart';
 import '../services/danger_labels.dart';
 import '../services/gemini_service.dart';
 
-// --- IMPORT CHO MAP & CHART ---
-import 'package:maplibre_gl/maplibre_gl.dart'; // 3D Map
-import 'package:flutter_map/flutter_map.dart' as fmap; // 2D Map
-import 'package:latlong2/latlong.dart' as fcoords; // Toạ độ cho 2D Map
-import 'package:fl_chart/fl_chart.dart'; // Biểu đồ
+import 'package:maplibre_gl/maplibre_gl.dart';
+import 'package:flutter_map/flutter_map.dart' as fmap;
+import 'package:latlong2/latlong.dart' as fcoords;
+import 'package:fl_chart/fl_chart.dart';
 
 const kBgColor = Color(0xFFF8F6F2);
 const kPrimaryGreen = Color(0xFF425E3C);
 
 class InteractivePoint {
-  final fcoords.LatLng coordinate; // Tọa độ (để vẽ marker trên Map)
-  final double elevation;          // Độ cao (trục Y Chart)
-  final double distance;           // Khoảng cách từ điểm xuất phát (trục X Chart)
+  final fcoords.LatLng coordinate;
+  final double elevation;
+  final double distance;
 
   InteractivePoint({
     required this.coordinate,
@@ -104,7 +102,6 @@ class _TripDashboardState extends State<TripDashboard> {
   @override
   void initState() {
     super.initState();
-    // Tải dữ liệu ngay khi màn hình mở
     SchedulerBinding.instance.addPostFrameCallback((_) => _initSafetyCheck());
   }
 
@@ -185,7 +182,6 @@ class _TripDashboardState extends State<TripDashboard> {
     );
 
     String display = raw;
-    // Defensive: AI service may return structured JSON (e.g. { "note": "..." })
     try {
       if (display.trim().startsWith('{') || display.trim().startsWith('[')) {
         final decoded = jsonDecode(display);
@@ -197,7 +193,6 @@ class _TripDashboardState extends State<TripDashboard> {
           } else if (decoded.containsKey('content') && decoded['content'] is String) {
             display = decoded['content'] as String;
           } else {
-            // Try to find first string value
             final firstStr = decoded.values.firstWhere((v) => v is String, orElse: () => null);
             if (firstStr is String) {
               display = firstStr;
@@ -206,12 +201,10 @@ class _TripDashboardState extends State<TripDashboard> {
             }
           }
         } else if (decoded is List && decoded.isNotEmpty) {
-          // join list items into readable text
           display = decoded.map((e) => e.toString()).join('\n');
         }
       }
     } catch (e) {
-      // ignore JSON parse errors and use raw string
       AppLogger.e('TripDashboard', 'AI note parse error: ${e.toString()}');
     }
 
@@ -240,19 +233,16 @@ class _TripDashboardState extends State<TripDashboard> {
                 controller: _pageController,
                 onPageChanged: (i) => setState(() => _activeIndex = i),
                 children: [
-                  // Tab 1: Route (Truyền plan vào đây, nếu plan null thì nó hiện loading hoặc fake)
                   _RouteTab(
                       plan: _latestPlan,
                       aiNote: _aiRouteNote,
                       isLoadingNote: _isLoadingNote
                   ),
-                  // Tab 2: Equipment
                   _ItemsTab(
                     plan: _latestPlan,
                     equipmentDetails: _equipmentDetails,
                     onBuyPressed: _launchBuyLink,
                   ),
-                  // Tab 3: Notes
                   _NotesTab(notes: _notes, onDeleteNote: _deleteNote, onEditNote: _editNote),
                 ],
               ),
@@ -279,7 +269,6 @@ class _TripDashboardState extends State<TripDashboard> {
     final ctx = context;
     final navigator = Navigator.of(ctx);
 
-    // Show loading
     showDialog<void>(
       context: ctx,
       barrierDismissible: false,
@@ -311,10 +300,8 @@ class _TripDashboardState extends State<TripDashboard> {
         return;
       }
 
-      // Update State: Plan đã tải xong
       setState(() => _latestPlan = targetPlan);
 
-      // Load persisted notes for this plan (if available)
       if (targetPlan != null && targetPlan.id != null) {
         try {
           await _loadNotesForPlan(targetPlan.id!);
@@ -325,7 +312,6 @@ class _TripDashboardState extends State<TripDashboard> {
 
       if (targetPlan != null) {
         _fetchEquipmentDetails(targetPlan);
-        // Check weather and possibly save dangers snapshot
         dynamic returnedSnapshot;
         try {
           returnedSnapshot = await _checkWeatherAndSave(targetPlan);
@@ -334,28 +320,20 @@ class _TripDashboardState extends State<TripDashboard> {
         }
         _generateAiNote(targetPlan);
 
-        // Check Danger: prefer the snapshot returned from the weather check
-        // (so newly-created plans will surface their own danger snapshot immediately),
-        // fallback to reading the plan row or latest snapshot.
         try {
           dynamic snapshot = returnedSnapshot;
           final pid = _latestPlan?.id;
-          AppLogger.d('TripDashboard', 'DEBUG _initSafetyCheck: returnedSnapshot=$returnedSnapshot, pid=$pid');
 
           if (snapshot == null) {
-            AppLogger.d('TripDashboard', 'DEBUG: snapshot is null, fetching from DB');
             if (pid != null) {
               final planRow = await _db.getPlanById(pid);
               snapshot = planRow != null ? planRow['dangers_snapshot'] : null;
-              AppLogger.d('TripDashboard', 'DEBUG: getPlanById($pid) dangers_snapshot=$snapshot');
             } else {
               snapshot = await _db.getLatestDangerSnapshot();
-              AppLogger.d('TripDashboard', 'DEBUG: getLatestDangerSnapshot()=$snapshot');
             }
           }
 
           if (snapshot != null) {
-            AppLogger.d('TripDashboard', 'DEBUG: snapshot is not null, calling _isAcknowledgedForPlanWithSnapshot');
             if (pid != null) {
               final ack = await _isAcknowledgedForPlanWithSnapshot(pid, snapshot);
               AppLogger.d('TripDashboard', 'DEBUG: ack=$ack');
@@ -363,7 +341,6 @@ class _TripDashboardState extends State<TripDashboard> {
               if (!ack) {
                 // Format the danger snapshot properly instead of raw toString()
                 final message = _formatDangerSnapshot(snapshot);
-                AppLogger.d('TripDashboard', 'DEBUG: Formatted message=$message');
                 if (!mounted) return;
                 await _showDangerWarning(navigator, snapshot, message);
               }
@@ -374,7 +351,7 @@ class _TripDashboardState extends State<TripDashboard> {
           }
           if (navigator.canPop()) navigator.pop();
         } catch (e) {
-          AppLogger.e('TripDashboard', 'DEBUG: Exception in danger check: $e');
+          AppLogger.e('TripDashboard', 'Danger check error: $e');
           if (navigator.canPop()) navigator.pop();
         }
       }
@@ -392,13 +369,9 @@ class _TripDashboardState extends State<TripDashboard> {
 
   Future<bool> _isAcknowledgedForPlanWithSnapshot(int planId, dynamic snapshot) async {
     final prefs = await SharedPreferences.getInstance();
-    // If the global plan ack exists, treat as acknowledged
     if (prefs.getBool('ack_plan_$planId') == true) return true;
 
-    // If snapshot is empty/null then not acknowledged
     if (snapshot == null) return false;
-
-    // If snapshot is a map with 'dangers' array (structured format)
     if (snapshot is Map && snapshot['dangers'] is List) {
       final List dangers = snapshot['dangers'] as List;
       for (var i = 0; i < dangers.length; i++) {
@@ -408,9 +381,7 @@ class _TripDashboardState extends State<TripDashboard> {
       return true;
     }
 
-    // If snapshot is a map, ensure every danger key has been acknowledged
     if (snapshot is Map) {
-      // Skip metadata keys
       final dangerKeys = snapshot.keys.where((k) =>
       k.toString() != 'source' &&
           k.toString() != 'latitude' &&
@@ -420,7 +391,7 @@ class _TripDashboardState extends State<TripDashboard> {
           k.toString() != 'raw'
       ).toList();
 
-      if (dangerKeys.isEmpty) return true; // No actual dangers
+      if (dangerKeys.isEmpty) return true;
 
       for (final k in dangerKeys) {
         final key = _dangerStorageKey(planId, k.toString());
@@ -429,7 +400,6 @@ class _TripDashboardState extends State<TripDashboard> {
       return true;
     }
 
-    // If snapshot is a list, check each index key
     if (snapshot is List) {
       for (var i = 0; i < snapshot.length; i++) {
         final key = _dangerStorageKey(planId, i.toString());
@@ -438,7 +408,6 @@ class _TripDashboardState extends State<TripDashboard> {
       return true;
     }
 
-    // For other snapshot types, use a generic 'message' key
     final key = _dangerStorageKey(planId, 'message');
     return prefs.getBool(key) == true;
   }
@@ -744,20 +713,13 @@ class _TripDashboardState extends State<TripDashboard> {
   /// Format a danger snapshot object for display in the warning dialog
   /// Handles nested structures with 'dangers' array or direct danger list
   String _formatDangerSnapshot(dynamic snapshot) {
-    AppLogger.d('TripDashboard', 'DEBUG _formatDangerSnapshot called with: ${snapshot.runtimeType} = $snapshot');
-
     if (snapshot == null) {
-      AppLogger.d('TripDashboard', 'DEBUG: snapshot is null, returning "Không có cảnh báo"');
       return 'Không có cảnh báo.';
     }
 
     // If it's a Map, check for 'dangers' key first
     if (snapshot is Map) {
-      AppLogger.d('TripDashboard', 'DEBUG: snapshot is Map with keys: ${snapshot.keys.toList()}');
-
-      // Check if there's a 'dangers' array with structured data
       if (snapshot['dangers'] is List) {
-        AppLogger.d('TripDashboard', 'DEBUG: Found dangers array');
         final List dangers = snapshot['dangers'] as List;
         final parts = <String>[];
         for (final danger in dangers) {
@@ -815,7 +777,6 @@ class _TripDashboardState extends State<TripDashboard> {
 
     // If it's a List, format as bullet points
     if (snapshot is List) {
-      AppLogger.d('TripDashboard', 'DEBUG: snapshot is List with ${snapshot.length} items');
       final parts = <String>[];
       for (final item in snapshot) {
         if (item is Map) {
@@ -832,7 +793,7 @@ class _TripDashboardState extends State<TripDashboard> {
     }
 
     // Fallback for other types
-    AppLogger.d('TripDashboard', 'DEBUG: snapshot is ${snapshot.runtimeType}, using toString()');
+    AppLogger.d('TripDashboard', 'Danger snapshot: ${snapshot.runtimeType}');
     return snapshot.toString();
   }
 

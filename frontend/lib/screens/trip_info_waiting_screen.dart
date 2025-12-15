@@ -21,25 +21,17 @@ class _WaitingScreenState extends State<WaitingScreen> {
   }
   Future<void> _fetchData() async {
     try {
-      print('\n🔵🔵🔵 [WaitingScreen] === START _fetchData ===');
-      AppLogger.d('WaitingScreen', '=== START _fetchData ===');
+      AppLogger.d('WaitingScreen', 'Fetching suggested routes...');
       if (!mounted) return;
 
-      AppLogger.d('WaitingScreen', 'Calling fetchSuggestedRoutes...');
-      // Fetch suggested routes from provider
       final List<RouteModel> routes = await context.read<TripProvider>().fetchSuggestedRoutes();
 
-      AppLogger.d('WaitingScreen', 'Fetched ${routes.length} routes successfully');
       if (!mounted) return;
-
-      AppLogger.d('WaitingScreen', 'Navigating to PreferenceMatchingPage with ${routes.length} routes');
-      // Navigate to preference matching page with fetched routes
       await Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => PreferenceMatchingPage(routes: routes),
         ),
       );
-      AppLogger.d('WaitingScreen', '=== END _fetchData SUCCESS ===');
 
     } catch (error) {
       AppLogger.e('WaitingScreen', '=== ERROR in _fetchData: $error ===');
