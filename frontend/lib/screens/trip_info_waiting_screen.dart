@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/trip_provider.dart';
 import '../features/preference_matching/models/route_model.dart';
 import '../features/preference_matching/screen/preference_matching_page.dart';
+import '../utils/logger.dart';
 class WaitingScreen extends StatefulWidget {
   const WaitingScreen({super.key});
 
@@ -18,17 +19,14 @@ class _WaitingScreenState extends State<WaitingScreen> {
     super.initState();
     _fetchData();
   }
-
   Future<void> _fetchData() async {
     try {
+      AppLogger.d('WaitingScreen', 'Fetching suggested routes...');
       if (!mounted) return;
 
-      // Fetch suggested routes from provider
       final List<RouteModel> routes = await context.read<TripProvider>().fetchSuggestedRoutes();
 
       if (!mounted) return;
-
-      // Navigate to preference matching page with fetched routes
       await Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => PreferenceMatchingPage(routes: routes),
@@ -36,10 +34,10 @@ class _WaitingScreenState extends State<WaitingScreen> {
       );
 
     } catch (error) {
+      AppLogger.e('WaitingScreen', '=== ERROR in _fetchData: $error ===');
       if (!mounted) return;
       
       // Show error dialog
-      if (!mounted) return;
       try {
         await showDialog<void>(
           context: context,
@@ -80,7 +78,7 @@ class _WaitingScreenState extends State<WaitingScreen> {
               height: 80,
               child: CircularProgressIndicator(
                 strokeWidth: 8,
-                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF4CAF50)),
+                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF425E3C)),
                 backgroundColor: Colors.grey.shade300,
                 strokeCap: StrokeCap.round,
               ),

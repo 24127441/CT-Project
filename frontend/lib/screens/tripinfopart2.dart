@@ -14,11 +14,15 @@ class TripTimeScreen extends StatefulWidget {
 }
 
 class _TripTimeScreenState extends State<TripTimeScreen> {
-  final Color primaryGreen = const Color(0xFF4CAF50);
+  final Color primaryGreen = const Color(0xFF425E3C);
 
   Future<void> _selectDateRange(BuildContext context, TripProvider tripData) async {
     final screenWidth = MediaQuery.of(context).size.width;
     final dialogWidth = screenWidth > 400 ? 400.0 : screenWidth - 48;
+    
+    // Set firstDate to today to prevent selecting past dates
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
 
     final config = CalendarDatePicker2WithActionButtonsConfig(
       calendarType: CalendarDatePicker2Type.range,
@@ -31,6 +35,8 @@ class _TripTimeScreenState extends State<TripTimeScreen> {
       okButtonTextStyle: TextStyle(color: primaryGreen, fontWeight: FontWeight.bold),
       cancelButtonTextStyle: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
       dayBorderRadius: BorderRadius.circular(8),
+      firstDate: today,
+      lastDate: DateTime(today.year + 5, today.month, today.day),
     );
 
     final List<DateTime?>? results = await showCalendarDatePicker2Dialog(
@@ -81,16 +87,11 @@ class _TripTimeScreenState extends State<TripTimeScreen> {
 
       // --- APP BAR ---
       appBar: AppBar(
-        // Nút Hủy về Home
+        automaticallyImplyLeading: false,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
-            context.read<TripProvider>().resetTrip();
-            Navigator.of(context).pushAndRemoveUntil(
-              // ✅ Dùng đúng HomePage
-              MaterialPageRoute(builder: (context) => const HomePage()),
-                  (Route<dynamic> route) => false,
-            );
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const HomePage()));
           },
         ),
         title: const Column(

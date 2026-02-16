@@ -1,9 +1,11 @@
+// ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-// debugPrint is provided by material.dart; no separate foundation import needed
 import 'package:provider/provider.dart';
 import 'package:frontend/utils/notification.dart';
+import 'package:frontend/utils/logger.dart';
 import '../providers/trip_provider.dart';
+import '../services/supabase_db_service.dart';
 import '../screens/home_screen.dart';
 import 'trip_info_waiting_screen.dart';
 
@@ -16,9 +18,8 @@ class TripConfirmScreen extends StatefulWidget {
 class _TripConfirmScreenState extends State<TripConfirmScreen> {
   final TextEditingController _tripNameController = TextEditingController();
 
-  // Màu sắc theo thiết kế cũ của bạn
-  final Color primaryGreen = const Color(0xFF4CAF50);
-  final Color darkGreen = const Color(0xFF388E3C);
+  final Color primaryGreen = const Color(0xFF425E3C);
+  final Color darkGreen = const Color(0xFF425E3C);
   final Color cardBackground = const Color(0xFFC8D7C8);
 
   @override
@@ -42,15 +43,13 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () {
-            // Use simple pop to return to the previous screen instead of
-            // replacing the whole navigation stack. This avoids accidental
-            // navigation to the welcome screen in edge cases.
-            if (Navigator.canPop(context)) {
-              Navigator.pop(context);
-            } else {
+          onPressed: () async {
+            final tripProvider = Provider.of<TripProvider>(context, listen: false);
+            await tripProvider.cancelDraftPlan();
+            if (context.mounted) {
               Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const HomePage()));
             }
           },
@@ -116,12 +115,10 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
         ),
       ),
 
-      // --- PHẦN NÀY ĐÃ ĐƯỢC QUAY VỀ GIAO DIỆN CŨ ---
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Row(
           children: [
-            // 1. Nút Back nhỏ bên trái
             Container(
               width: 48, height: 48,
               decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(8), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 2, offset: Offset(0,1))]),
@@ -132,21 +129,43 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
             ),
             const SizedBox(width: 12),
 
-            // 2. Nút "Lưu mẫu này" (Màu trắng, chữ đen) - ĐÃ GẮN LOGIC MỚI
             Expanded(
               child: ElevatedButton(
                 onPressed: () async {
                   try {
-                    // Lấy tên từ ô nhập liệu
                     String tName = _tripNameController.text.isEmpty ? "Mẫu mới" : _tripNameController.text;
+                    final supabaseDb = SupabaseDbService();
+                    final exists = await supabaseDb.checkHistoryInputNameExists(tName);
+                    
+                    if (exists && context.mounted) {
+                      final shouldOverwrite = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Tên mẫu đã tồn tại'),
+                          content: Text('Mẫu "$tName" đã tồn tại. Bạn có muốn tạo mẫu khác với tên này không?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(ctx).pop(false),
+                              child: const Text('Hủy'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.of(ctx).pop(true),
+                              child: const Text('Tiếp tục lưu'),
+                            ),
+                          ],
+                        ),
+                      );
+                      
+                      if (shouldOverwrite != true) return;
+                    }
 
-                    // Hiện thông báo đang xử lý
-                    NotificationService.showInfo('Đang lưu mẫu...', duration: const Duration(milliseconds: 800));
+                    if (context.mounted) {
+                      NotificationService.showInfo('Đang lưu mẫu...', duration: const Duration(milliseconds: 800));
+                    }
 
-                    // GỌI PROVIDER (Logic đúng đã fix)
-                    await context.read<TripProvider>().saveHistoryInput(tName);
-
-                    // Thông báo thành công
+                    if (context.mounted) {
+                      await context.read<TripProvider>().saveHistoryInput(tName);
+                    }
                     if (context.mounted) {
                       NotificationService.showSuccess('✅ Đã lưu mẫu thành công!');
                     }
@@ -169,24 +188,85 @@ class _TripConfirmScreenState extends State<TripConfirmScreen> {
 
             const SizedBox(width: 12),
 
-            // 3. Nút "Xác nhận" (Màu xanh) - CHỈ CHUYỂN TRANG
             Expanded(
               child: ElevatedButton(
                   onPressed: () async {
                     try {
-                      // Start the preference-matching flow without saving a draft here.
-                      // The plan will be created when the user confirms a route.
-                      if (!mounted) return;
+                      final isMounted = mounted;
+                      final tripProvider = Provider.of<TripProvider>(context, listen: false);
+
+                      if (tripProvider.tripName.isEmpty) {
+                        if (isMounted) NotificationService.showError('Vui lòng đặt tên cho chuyến đi');
+                        return;
+                      }
+
+                      if (tripProvider.searchLocation.isEmpty) {
+                        if (isMounted) NotificationService.showError('Vui lòng chọn điểm đến (Bước 1)');
+                        return;
+                      }
+
+                      if (tripProvider.startDate == null || tripProvider.endDate == null) {
+                        if (isMounted) NotificationService.showError('Vui lòng chọn thời gian chuyến đi (Bước 2)');
+                        return;
+                      }
+
+                      if (tripProvider.difficultyLevel == null || tripProvider.difficultyLevel!.isEmpty) {
+                        if (isMounted) NotificationService.showError('Vui lòng chọn cấp độ (Bước 3)');
+                        return;
+                      }
+
+                      if (tripProvider.accommodation == null || tripProvider.accommodation!.isEmpty) {
+                        if (isMounted) NotificationService.showError('Vui lòng chọn loại chỗ nghỉ (Bước 1)');
+                        return;
+                      }
+
+                      if (tripProvider.paxGroup == null || tripProvider.paxGroup!.isEmpty) {
+                        if (isMounted) NotificationService.showError('Vui lòng chọn số lượng người (Bước 1)');
+                        return;
+                      }
+
+                      final supabaseDb = SupabaseDbService();
+                      final exists = await supabaseDb.checkPlanNameExists(tripProvider.tripName);
+                      
+                      if (exists) {
+                        if (!isMounted) return;
+                        final shouldContinue = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Tên chuyến đi đã tồn tại'),
+                            content: const Text('Bạn có muốn tạo chuyến đi khác với tên này không?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(false),
+                                child: const Text('Hủy'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(true),
+                                child: const Text('Tiếp tục tạo'),
+                              ),
+                            ],
+                          ),
+                        );
+                        
+                        if (shouldContinue != true) return;
+                      }
+
+                      await tripProvider.saveTripRequest();
+
+                      final isMountedAfterDialogs = mounted;
+                      if (!isMountedAfterDialogs) return;
+
                       await Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => const WaitingScreen()),
                       );
                     } catch (e) {
-                      if (context.mounted) NotificationService.showError('Không thể bắt đầu tìm lộ trình: $e');
+                      AppLogger.e('TripConfirmScreen', 'Error: ${e.toString()}');
+                      if (mounted) NotificationService.showError('Không thể bắt đầu tìm lộ trình: $e');
                     }
                   },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryGreen, // Đảm bảo biến primaryGreen đã được import/khai báo
+                  backgroundColor: primaryGreen,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   elevation: 2,

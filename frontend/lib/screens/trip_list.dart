@@ -67,7 +67,7 @@ class _TripListViewState extends State<TripListView> {
                 future: _plansFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator(color: Color(0xFF4CAF50)));
+                    return const Center(child: CircularProgressIndicator(color: Color(0xFF425E3C)));
                   } else if (snapshot.hasError) {
                     return Center(child: Text('Lỗi tải chuyến đi: ${snapshot.error}'));
                   } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -208,7 +208,7 @@ class _PlanCard extends StatelessWidget {
                             gradient: LinearGradient(
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
-                              colors: [Color(0xFF425E3C), Color(0xFF2E7D32)],
+                              colors: [Color(0xFF425E3C), Color(0xFF2D4A26)],
                             ),
                           ),
                         );
@@ -224,7 +224,7 @@ class _PlanCard extends StatelessWidget {
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [Color(0xFF425E3C), Color(0xFF2E7D32)],
+                      colors: [Color(0xFF425E3C), Color(0xFF2D4A26)],
                     ),
                   ),
                 );

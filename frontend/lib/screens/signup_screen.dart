@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/custom_button.dart';
 import '../utils/app_colors.dart';
@@ -32,14 +33,51 @@ class _SignupScreenState extends State<SignupScreen> {
     }
 
     final email = _emailController.text.trim();
-    // name is optional for now — Supabase signUp handles basic profile creation.
     final password = _passwordController.text.trim();
+
+    // Validate email format
+    if (!_isValidEmail(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Email không hợp lệ'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Validate password length
+    if (password.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Mật khẩu phải có ít nhất 6 ký tự'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
 
     try {
+      // Check if email already exists using RPC function
+      final exists = await _authService.emailExists(email);
+      if (exists) {
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Email này đã được đăng ký. Vui lòng sử dụng email khác hoặc đăng nhập.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Email doesn't exist, proceed with registration
       await _authService.register(email, password);
       if (!mounted) return;
+      
       // After signup, user must confirm via email (magic link). Show OTP screen to instruct.
       Navigator.push(
         context,
@@ -47,14 +85,47 @@ class _SignupScreenState extends State<SignupScreen> {
           builder: (context) => OtpVerificationScreen(email: email, autoSend: false),
         ),
       );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đăng ký thành công! Vui lòng xác nhận email của bạn.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      // Handle specific Supabase errors
+      String errorMessage = 'Đăng ký thất bại';
+      if (e.message.toLowerCase().contains('already registered')) {
+        errorMessage = 'Email này đã được đăng ký';
+      } else if (e.message.toLowerCase().contains('password')) {
+        errorMessage = 'Mật khẩu không hợp lệ';
+      } else {
+        errorMessage = 'Lỗi: ${e.message}';
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Registration failed: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  bool _isValidEmail(String email) {
+    final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+    return emailRegex.hasMatch(email);
   }
 
   @override

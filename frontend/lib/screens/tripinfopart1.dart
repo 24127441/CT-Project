@@ -8,22 +8,18 @@ import 'home_screen.dart';
 class TripInfoScreen extends StatelessWidget {
   const TripInfoScreen({super.key});
 
-  final Color primaryGreen = const Color(0xFF4CAF50);
-  final Color darkGreen = const Color(0xFF388E3C);
+  final Color primaryGreen = const Color(0xFF425E3C);
+  final Color darkGreen = const Color(0xFF425E3C);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
-            // Hủy wizard, quay về Home
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (context) => const HomePage()),
-                  (route) => false,
-            );
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const HomePage()));
           },
         ),
         title: const Column(

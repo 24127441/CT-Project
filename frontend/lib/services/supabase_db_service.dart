@@ -7,8 +7,6 @@ class SupabaseDbService {
 
   String? get _uid => _client.auth.currentUser?.id;
 
-  // --- 1. ROUTES ---
-
   Future<List<Map<String, dynamic>>> getSuggestedRoutes({
     String? location,
     String? difficulty,
@@ -119,8 +117,15 @@ class SupabaseDbService {
       'personal_interests': personalInterests,
     };
 
-    final res = await _client.from('plans').insert(payload).select().single();
-    return Map<String, dynamic>.from(res);
+    try {
+      AppLogger.d('SupabaseDb', 'Creating plan: $name in location $location');
+      final res = await _client.from('plans').insert(payload).select().single();
+      AppLogger.d('SupabaseDb', 'Plan created successfully with ID ${res['id']}');
+      return Map<String, dynamic>.from(res);
+    } catch (e) {
+      AppLogger.e('SupabaseDb', 'Error creating plan: ${e.toString()}');
+      rethrow;
+    }
   }
 
   // [MERGED] From 'HEAD': Critical for AI PEC flow
@@ -201,6 +206,34 @@ class SupabaseDbService {
     await _client.from('history_inputs').delete().eq('id', id).eq('user_id', uid);
   }
 
+  Future<bool> checkHistoryInputNameExists(String name) async {
+    final uid = _uid;
+    if (uid == null) return false;
+    
+    final res = await _client
+        .from('history_inputs')
+        .select('id')
+        .eq('user_id', uid)
+        .eq('template_name', name)
+        .maybeSingle();
+    
+    return res != null;
+  }
+
+  Future<bool> checkPlanNameExists(String name) async {
+    final uid = _uid;
+    if (uid == null) return false;
+    
+    final res = await _client
+        .from('plans')
+        .select('id')
+        .eq('user_id', uid)
+        .eq('name', name)
+        .maybeSingle();
+    
+    return res != null;
+  }
+
   Future<Map<String, dynamic>> saveHistoryInput(String name, Map<String, dynamic> payload) async {
     final uid = _uid;
     if (uid == null) throw Exception('Not signed in');
@@ -229,8 +262,6 @@ class SupabaseDbService {
     final res = await _client.from('history_inputs').insert(insertPayload).select().single();
     return Map<String, dynamic>.from(res);
   }
-
-  // --- 5. DANGERS ---
 
   /// Fetch a single plan by id (includes fields like start_date, duration_days, location)
   Future<Map<String, dynamic>?> getPlanById(int planId) async {
